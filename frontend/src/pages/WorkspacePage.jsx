@@ -13,6 +13,12 @@ import {
   CheckCircle2,
   ListFilter,
   FileText,
+  Layers,
+  Code2,
+  Database,
+  Cloud,
+  Wrench,
+  Check,
 } from 'lucide-react';
 import { jobsApi } from '../api/jobs';
 import { profileApi } from '../api/profile';
@@ -23,8 +29,11 @@ export default function WorkspacePage({ currentUser }) {
   const [profile, setProfile] = useState(null);
   const [savedJobs, setSavedJobs] = useState([]);
   const [activeJob, setActiveJob] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -52,6 +61,12 @@ export default function WorkspacePage({ currentUser }) {
     }
   }, [currentUser]);
 
+  useEffect(() => {
+    if (activeJob) {
+      loadJobAnalysis(activeJob.id);
+    }
+  }, [activeJob]);
+
   const loadWorkspaceContext = async () => {
     setLoading(true);
     try {
@@ -73,6 +88,15 @@ export default function WorkspacePage({ currentUser }) {
     }
   };
 
+  const loadJobAnalysis = async (jobId) => {
+    try {
+      const data = await jobsApi.getJobAnalysis(jobId);
+      setAnalysis(data);
+    } catch (err) {
+      setAnalysis(null);
+    }
+  };
+
   const handleSubmitJob = async (e) => {
     e.preventDefault();
     if (!jobForm.company.trim() || !jobForm.title.trim() || !jobForm.raw_jd_text.trim()) {
@@ -89,12 +113,32 @@ export default function WorkspacePage({ currentUser }) {
       setActiveJob(created);
       setSavedJobs([created, ...savedJobs]);
       setSuccessMsg(`Target job "${created.title} at ${created.company}" saved successfully.`);
-      // Advance to next stage (Stage 2: JD Analysis)
+      
+      // Trigger analysis immediately
+      setAnalyzing(true);
       setCurrentStep(2);
+      const anaData = await jobsApi.analyzeJob(created.id);
+      setAnalysis(anaData);
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to save job description.');
+      setErrorMsg(err.message || 'Failed to save or analyze job description.');
     } finally {
       setSubmitting(false);
+      setAnalyzing(false);
+    }
+  };
+
+  const handleTriggerAnalysis = async () => {
+    if (!activeJob) return;
+    setAnalyzing(true);
+    setErrorMsg('');
+    try {
+      const data = await jobsApi.analyzeJob(activeJob.id);
+      setAnalysis(data);
+      setSuccessMsg('Job description analyzed successfully.');
+    } catch (err) {
+      setErrorMsg(err.message || 'Analysis failed.');
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -253,7 +297,7 @@ export default function WorkspacePage({ currentUser }) {
                 )}
               </div>
 
-              {/* Right Column (2 cols): Target Job Description Input Form */}
+              {/* Right Column: Target Job Description Input Form */}
               <div className="lg:col-span-2 border-2 border-charcoal bg-white p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-cream-border pb-3">
                   <h3 className="font-bold text-sm text-charcoal uppercase tracking-wider flex items-center space-x-2">
@@ -364,36 +408,231 @@ export default function WorkspacePage({ currentUser }) {
         </div>
       )}
 
-      {/* Stage 2 Preview: Job Analysis (Epic 4 Anchor) */}
+      {/* Stage 2: Job Description Analysis (Epic 4) */}
       {currentStep === 2 && (
         <div className="card-brutal space-y-6">
-          <div className="border-b border-cream-border pb-4 flex justify-between items-center">
+          <div className="border-b border-cream-border pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-charcoal">
-                Stage 2: Job Description Analysis (Ollama Engine)
-              </h2>
+              <div className="flex items-center space-x-2">
+                <span className="badge-tag bg-coral-light text-coral border-coral font-bold">Stage 2</span>
+                <h2 className="text-xl font-bold tracking-tight text-charcoal">
+                  Structured Job Requirements
+                </h2>
+              </div>
               <p className="text-xs text-charcoal-muted mt-1">
                 Target: <strong>{activeJob?.title}</strong> at <strong>{activeJob?.company}</strong>
+                {analysis?.experience_years ? ` · Level: ${analysis.experience_years}` : ''}
               </p>
             </div>
-            <button onClick={() => setCurrentStep(1)} className="btn-secondary text-xs">
-              ← Back to Stage 1
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleTriggerAnalysis}
+                disabled={analyzing}
+                className="btn-secondary text-xs flex items-center space-x-1"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-coral" />
+                <span>{analyzing ? 'Extracting...' : 'Re-analyze JD'}</span>
+              </button>
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="btn-primary text-xs flex items-center space-x-1.5"
+              >
+                <span>Proceed to Evidence Match</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          <div className="bg-cream border-2 border-charcoal p-6 space-y-4 font-mono text-xs">
-            <div className="flex items-center space-x-2">
-              <span className="badge-tag bg-coral-light text-coral border-coral">Coming in Epic 4</span>
-              <span className="font-bold text-charcoal">Structured Requirements Extraction</span>
+          {analyzing && (
+            <div className="bg-cream border-2 border-charcoal p-8 text-center space-y-3 font-mono">
+              <Sparkles className="w-8 h-8 text-coral animate-spin mx-auto" />
+              <div className="font-bold text-sm">Ollama Local Engine Extracting Requirements...</div>
+              <p className="text-xs text-charcoal-muted">Parsing technical skills, frameworks, databases, and responsibilities without hallucinating claims.</p>
             </div>
-            <p className="text-charcoal-muted">
-              In Epic 4, the local Ollama provider abstraction extracts required vs preferred skills, languages, frameworks, responsibilities, and qualifications into relational entities.
-            </p>
-            <div className="p-3 bg-white border border-charcoal">
-              <div className="font-bold mb-1">Target Raw JD Preview:</div>
-              <p className="truncate text-charcoal-light">{activeJob?.raw_jd_text || 'No JD selected'}</p>
+          )}
+
+          {!analyzing && !analysis && (
+            <div className="p-8 text-center space-y-4 bg-cream border-2 border-charcoal">
+              <p className="text-sm font-mono text-charcoal">No structured analysis has been generated yet for this job.</p>
+              <button onClick={handleTriggerAnalysis} className="btn-primary">
+                Analyze This Job Description
+              </button>
             </div>
-          </div>
+          )}
+
+          {!analyzing && analysis && (
+            <div className="space-y-6">
+              {/* Top Row: Required vs Preferred Skills */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="border-2 border-charcoal p-4 bg-white space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
+                      <span className="w-2.5 h-2.5 bg-coral inline-block"></span>
+                      <span>Required Skills ({analysis.required_skills?.length || 0})</span>
+                    </h3>
+                    <span className="badge-tag bg-coral-light text-coral border-coral">Core</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {analysis.required_skills?.map((sk, i) => (
+                      <span key={i} className="badge-tag bg-white border-charcoal font-semibold">
+                        {sk}
+                      </span>
+                    ))}
+                    {(!analysis.required_skills || analysis.required_skills.length === 0) && (
+                      <p className="text-xs text-charcoal-muted">No explicit required skills listed.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-2 border-charcoal p-4 bg-cream space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
+                      <span className="w-2.5 h-2.5 bg-charcoal inline-block"></span>
+                      <span>Preferred / Good-to-Have Skills ({analysis.preferred_skills?.length || 0})</span>
+                    </h3>
+                    <span className="badge-tag bg-white">Bonus</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {analysis.preferred_skills?.map((sk, i) => (
+                      <span key={i} className="badge-tag bg-white border-cream-border">
+                        {sk}
+                      </span>
+                    ))}
+                    {(!analysis.preferred_skills || analysis.preferred_skills.length === 0) && (
+                      <p className="text-xs text-charcoal-muted">No preferred skills listed.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Technical Stack Breakdown */}
+              <div className="border-2 border-charcoal p-5 bg-white space-y-4">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal">
+                  Categorized Technical Stack
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 font-mono text-xs">
+                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
+                    <div className="font-bold flex items-center space-x-1 text-charcoal">
+                      <Code2 className="w-3.5 h-3.5 text-coral" />
+                      <span>Languages</span>
+                    </div>
+                    <div className="space-y-1">
+                      {analysis.languages?.map((item, idx) => (
+                        <div key={idx} className="truncate">• {item}</div>
+                      ))}
+                      {(!analysis.languages || analysis.languages.length === 0) && (
+                        <span className="text-charcoal-light">None listed</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
+                    <div className="font-bold flex items-center space-x-1 text-charcoal">
+                      <Layers className="w-3.5 h-3.5 text-coral" />
+                      <span>Frameworks</span>
+                    </div>
+                    <div className="space-y-1">
+                      {analysis.frameworks?.map((item, idx) => (
+                        <div key={idx} className="truncate">• {item}</div>
+                      ))}
+                      {(!analysis.frameworks || analysis.frameworks.length === 0) && (
+                        <span className="text-charcoal-light">None listed</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
+                    <div className="font-bold flex items-center space-x-1 text-charcoal">
+                      <Database className="w-3.5 h-3.5 text-coral" />
+                      <span>Databases</span>
+                    </div>
+                    <div className="space-y-1">
+                      {analysis.databases?.map((item, idx) => (
+                        <div key={idx} className="truncate">• {item}</div>
+                      ))}
+                      {(!analysis.databases || analysis.databases.length === 0) && (
+                        <span className="text-charcoal-light">None listed</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
+                    <div className="font-bold flex items-center space-x-1 text-charcoal">
+                      <Cloud className="w-3.5 h-3.5 text-coral" />
+                      <span>Cloud & Infra</span>
+                    </div>
+                    <div className="space-y-1">
+                      {analysis.cloud?.map((item, idx) => (
+                        <div key={idx} className="truncate">• {item}</div>
+                      ))}
+                      {(!analysis.cloud || analysis.cloud.length === 0) && (
+                        <span className="text-charcoal-light">None listed</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
+                    <div className="font-bold flex items-center space-x-1 text-charcoal">
+                      <Wrench className="w-3.5 h-3.5 text-coral" />
+                      <span>Tools & DevOps</span>
+                    </div>
+                    <div className="space-y-1">
+                      {analysis.tools?.map((item, idx) => (
+                        <div key={idx} className="truncate">• {item}</div>
+                      ))}
+                      {(!analysis.tools || analysis.tools.length === 0) && (
+                        <span className="text-charcoal-light">None listed</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Responsibilities & Qualifications */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="border-2 border-charcoal p-4 bg-white space-y-3">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal">
+                    Key Job Responsibilities
+                  </h3>
+                  <ul className="space-y-2 text-xs">
+                    {analysis.responsibilities?.map((resp, i) => (
+                      <li key={i} className="flex items-start space-x-2">
+                        <span className="text-coral mt-0.5">•</span>
+                        <span className="text-charcoal">{resp}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="border-2 border-charcoal p-4 bg-white space-y-3">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal">
+                    Minimum Qualifications & Experience
+                  </h3>
+                  <div className="p-2.5 bg-cream border border-charcoal font-mono text-xs font-bold text-charcoal mb-2">
+                    Experience Level: {analysis.experience_years || 'Not specified'}
+                  </div>
+                  <ul className="space-y-2 text-xs">
+                    {analysis.qualifications?.map((qual, i) => (
+                      <li key={i} className="flex items-start space-x-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                        <span className="text-charcoal">{qual}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-2">
+                <button onClick={() => setCurrentStep(1)} className="btn-secondary text-xs">
+                  ← Back to Job Description
+                </button>
+                <button onClick={() => setCurrentStep(3)} className="btn-primary flex items-center space-x-2">
+                  <span>Proceed to Stage 3: Evidence Matching</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -402,8 +641,8 @@ export default function WorkspacePage({ currentUser }) {
         <div className="card-brutal text-center py-12 space-y-3 font-mono">
           <p className="text-sm font-bold text-charcoal">Stage {currentStep}: Upcoming Epic Workflow</p>
           <p className="text-xs text-charcoal-muted">Progressive workflow stage will activate as subsequent epics are implemented.</p>
-          <button onClick={() => setCurrentStep(1)} className="btn-secondary text-xs mt-2">
-            Return to Stage 1
+          <button onClick={() => setCurrentStep(2)} className="btn-secondary text-xs mt-2">
+            Return to Stage 2: JD Analysis
           </button>
         </div>
       )}
