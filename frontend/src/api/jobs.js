@@ -40,4 +40,15 @@ export const jobsApi = {
   async getJobAnalysis(jobId) {
     return api.request(`/jobs/${jobId}/analysis`);
   },
+
+  // Matching Engine (Epic 5)
+  async matchJob(jobId) {
+    return api.request(`/jobs/${jobId}/match`, {
+      method: 'POST',
+    });
+  },
+
+  async getJobMatch(jobId) {
+    return api.request(`/jobs/${jobId}/match`);
+  },
 };
