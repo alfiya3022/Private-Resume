@@ -1,35 +1,31 @@
 # PrivateResume - Current Project State
 
 ## Project phase
-Epic 1 - Authentication & User Isolation Complete. Ready for Epic 2 - Profile + Master Resume.
+Epic 2 - Profile + Master Resume Complete. Ready for Epic 3 - Job Management.
 
 ## Current status
 - Git repository and foundation verified (Epic 0).
-- User authentication and authorization engine implemented and verified (Epic 1):
-  - SQLAlchemy `User` entity with email uniqueness, bcrypt password hashing (12 rounds), active status, and timestamps.
-  - JWT token generation, expiration, and payload decoding via `python-jose`.
-  - Pydantic models for registration, login, token output, and user profile response.
-  - Service layer `AuthService` handling registration, lookup, and password authentication.
-  - FastAPI dependency `get_current_user` enforcing bearer token validation and user identity.
-  - Endpoints operational under `/api/v1/auth`:
-    - `POST /register` (201 Created, duplicate email rejection with 409 Conflict)
-    - `POST /login` (200 OK with bearer access token, 401 on bad credentials)
-    - `GET /me` (200 OK with authenticated user profile, 401 on missing/invalid token)
-  - Alembic migration `001_create_users_table.py` created.
-  - Full automated Pytest suite passing (14 tests passed, including unit, API, negative, and user isolation tests).
-  - Frontend authentication flow connected: registration, login, token persistence in localStorage, active user banner, and logout.
+- User authentication, JWT tokens, and user isolation verified (Epic 1).
+- Candidate master profile & resume ingestion engine verified (Epic 2):
+  - SQLAlchemy relational models for `CandidateProfile`, `CandidateSkill`, `Project`, `Experience`, `Education`, `Certification`, and `MasterResume`.
+  - Local storage service with path traversal protection, user directory isolation, and upload file size limits.
+  - PyMuPDF (`fitz`) text extraction pipeline with section segmentation and canonical skill detection.
+  - Master resume upload flow (`POST /api/v1/resumes`) auto-extracts text and populates candidate profile skills.
+  - Profile CRUD and sub-item endpoints (`/api/v1/profile`, `/skills`, `/projects`, `/experiences`, `/educations`, `/certifications`).
+  - Alembic migration `002_create_profile_tables.py` created.
+  - 22 total automated Pytest tests passing (100% pass rate across unit, API, negative, and security isolation tests).
+  - React Profile Workspace updated with PDF upload drag-and-drop, live parsing feedback, and tabbed evidence editing.
   - Both QA test workbooks updated with actual execution records:
-    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (`Auth` sheet: 12 tests passed)
-    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (`Auth` sheet: 3 tests passed)
+    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (`Auth`, `Master_Resume`, `Profile_Personal`: 20 automated tests logged)
+    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (`Auth`, `Master_Resume`: 5 manual tests logged)
 
 ## Current next step
-Epic 2 - Profile + Master Resume.
+Epic 3 - Job Management.
 Tasks:
-1. Candidate profile entity & relational models (Personal info, Education, Experience, Projects, Skills, Certifications, Template).
-2. Master resume upload (multipart PDF upload with PyMuPDF text extraction).
-3. Section detection and candidate data structuring.
-4. Profile CRUD API endpoints (`/api/v1/profile`, `/api/v1/resumes`).
-5. Frontend Profile Workspace integration with section-by-section review and editing.
+1. Job entity & relational model (`Job` with company, title, location, salary, raw job description text, status).
+2. Job CRUD endpoints (`POST /api/v1/jobs`, `GET /api/v1/jobs`, `GET /api/v1/jobs/{id}`, `PUT /api/v1/jobs/{id}`, `DELETE /api/v1/jobs/{id}`).
+3. Workspace Stage 1 integration with Job creation and master resume linkage.
+4. Pytest suite for Job management, validation, and multi-tenant isolation.
 
 ## Locked top-level product areas
 1. Auth
@@ -66,4 +62,4 @@ React, Vite, JavaScript, Tailwind CSS, Python, FastAPI, Pydantic, SQLAlchemy, Po
 No autonomous job applications, no fabricated qualifications, no recruiter portal, no candidate ranking, no V1 job-board integrations, no unnecessary infrastructure additions.
 
 ## Current issues
-None. Epics 0 and 1 verified and passing.
+None. Epics 0, 1, and 2 verified and passing.
