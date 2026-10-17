@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.job import JobCreate, JobResponse, JobUpdate
 from app.schemas.analysis import JobAnalysisResponse
 from app.schemas.match import MatchAnalysisResponse
+from app.schemas.tailored_resume import TailoredResumeResponse
 from app.services.job_service import job_service
 
 
@@ -137,5 +138,27 @@ def get_job_match(
             detail="Match analysis not found for this job. Trigger matching first.",
         )
     return match_data
+
+
+@router.post("/{job_id}/tailor", response_model=TailoredResumeResponse, status_code=status.HTTP_201_CREATED)
+async def tailor_resume_for_job(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate evidence-grounded tailored resume for target job."""
+    from app.services.tailoring_service import tailoring_service
+    return await tailoring_service.generate_initial_tailored_resume(db=db, user=current_user, job_id=job_id)
+
+
+@router.get("/{job_id}/tailored-resumes", response_model=List[TailoredResumeResponse])
+def get_job_tailored_resumes(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List all versioned tailored resumes for target job."""
+    from app.services.tailoring_service import tailoring_service
+    return tailoring_service.list_job_resumes(db=db, user=current_user, job_id=job_id)
 
 

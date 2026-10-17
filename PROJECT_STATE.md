@@ -1,7 +1,7 @@
 # PrivateResume - Current Project State
 
 ## Project phase
-Epic 5 - Resume-to-Job Matching Complete. Ready for Epic 6 - Tailored Resume + Human Editing.
+Epic 6 - Tailored Resume + Human Editing Complete. Ready for Epic 7 - LaTeX + PDF Generation.
 
 ## Current status
 - Git repository and foundation verified (Epic 0).
@@ -9,38 +9,41 @@ Epic 5 - Resume-to-Job Matching Complete. Ready for Epic 6 - Tailored Resume + H
 - Candidate master profile & PyMuPDF resume ingestion verified (Epic 2).
 - Job management & Workspace Stage 1 intake engine verified (Epic 3).
 - Local-first JD Analysis & requirements extraction engine verified (Epic 4).
-- Resume-to-Job Matching & Evidence alignment engine verified (Epic 5):
-  - Deterministic matching engine (`MatchingService`) implementing transparent, explainable 4-category classification:
-    - Matched Skills (backed by candidate profile and verified projects/experience)
-    - Weakly Represented Skills (present in profile but lacking dedicated project evidence)
-    - Missing Skills (explicitly flagged with non-fabrication notice)
-    - Unsupported Claims (candidate claims lacking verifiable project backing)
-  - Estimated Job Match metric calculated with 70% required / 30% preferred skill weights (strictly not labeled an ATS score).
-  - Evidence citations mapping matched requirements directly to project and employment records.
-  - SQLAlchemy relational model `MatchAnalysis` storing match scores, classification sets, and evidence maps.
-  - REST endpoints operational under `/api/v1/jobs`:
-    - `POST /jobs/{job_id}/match` (200 OK returning `MatchAnalysisResponse`)
-    - `GET /jobs/{job_id}/match` (200 OK; 404 for missing or unauthorized access)
-  - Alembic migration `005_create_match_tables.py` created.
-  - 33 total automated Pytest tests passing (100% pass rate across unit, API contracts, negative validation, and security isolation tests).
-  - React Workspace Stage 3 integrated: displays Estimated Job Match card, 4-category skill alignment cards, interactive evidence citations, non-fabrication warning banner, and transition to Stage 4.
+- Resume-to-Job Matching & Evidence alignment engine verified (Epic 5).
+- Tailored Resume Generation, Versioning & Human Editing verified (Epic 6):
+  - SQLAlchemy model `TailoredResume` with relational versioning (`version_number`, `parent_version_id`, `status` ['draft', 'final'], `target_role`, and structured `content` JSON).
+  - Historical immutability strictly enforced: editing a finalized resume or explicitly requesting a new version creates an immutable new version row (`v1` -> `v2` -> `v3`). Previous drafts remain frozen.
+  - Evidence-grounded `TailoringService`: builds tailored resume drafts directly from genuine candidate profile evidence aligned with JD requirements while strictly excluding missing skills (zero hallucination).
+  - Local-first "Ask AI" section refinement: localized section rewrite prompts via `OllamaProvider` (with deterministic fallback) ensuring factual grounding in verified profile skills.
+  - REST endpoints operational:
+    - `POST /api/v1/jobs/{job_id}/tailor` (201 Created)
+    - `GET /api/v1/jobs/{job_id}/tailored-resumes` (200 OK)
+    - `GET /api/v1/tailored-resumes/{id}` (200 OK)
+    - `PUT /api/v1/tailored-resumes/{id}` (200 OK; in-place draft save or version branching)
+    - `POST /api/v1/tailored-resumes/{id}/edit` (200 OK; localized Ask AI section revision)
+    - `POST /api/v1/tailored-resumes/{id}/finalize` (200 OK; locks version as FINAL)
+  - Alembic migration `006_create_tailoring_tables.py` created.
+  - 37 total automated Pytest tests passing (100% pass rate across all modules including unit, version immutability, Ask AI, and security isolation).
+  - React Workspace Stage 4 integrated:
+    - Version dropdown switcher (`v1 (DRAFT)`, `v2 (FINAL)`), status badges.
+    - Section-by-section editors (Headline, Professional Summary, Grouped Technical Skills, Work Experience with bullet editors, Key Projects, Education, Certifications).
+    - Interactive "Ask AI" consultation modal with preset prompt directives, custom prompt input, proposed revision box, and "Accept & Apply" workflow.
+    - Anti-fabrication integrity callouts and seamless progression to Stage 5.
   - Both QA test workbooks updated with actual execution records:
-    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (`Auth`, `Master_Resume`, `Profile_Personal`, `Workspace_Job_Input`, `JD_Analysis`, `Match_Analysis`, `Evidence`: 33 automated tests logged)
-    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (`Auth`, `Master_Resume`, `Workspace_Job_Input`, `JD_Analysis`, `Match_Analysis`, `Evidence`: 12 manual tests logged)
+    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (39 automated tests logged across all modules)
+    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (17 manual tests logged across all modules)
 
 ## Current next step
-Epic 6 - Tailored Resume + Human Editing.
+Epic 7 - LaTeX + PDF Generation.
 Tasks:
-1. Tailored resume entity (`TailoredResume`) and version history (Draft v1, v2, Final style).
-2. Section-level content model (Summary, Skills, Experience, Projects, Education, Certifications).
-3. "Ask AI" section editing flow with structured diffs (accept, reject, edit manually).
-4. Resume tailoring service (`app/services/tailoring_service.py`).
-5. Endpoints:
-   - `POST /api/v1/jobs/{job_id}/tailor`
-   - `GET /api/v1/tailored-resumes/{id}`
-   - `POST /api/v1/tailored-resumes/{id}/edit`
-   - `PUT /api/v1/tailored-resumes/{id}`
-6. Frontend Stage 4 Tailored Resume interactive editor with Ask AI drawer and version dropdown.
+1. Template storage and package handling (upload custom ZIP package or use default ATS LaTeX template).
+2. Content injection engine: safely escape LaTeX special characters (`&`, `%`, `$`, `#`, `_`, `{`, `}`) and render structured tailored resume content into `.tex` files.
+3. Local LaTeX compiler runner invoking `pdflatex` within isolated scratch working directories.
+4. Endpoints:
+   - `POST /api/v1/tailored-resumes/{id}/generate-pdf`
+   - `GET /api/v1/tailored-resumes/{id}/artifacts`
+   - `GET /api/v1/tailored-resumes/{id}/preview` (PDF streaming/download)
+5. Frontend Stage 5 PDF previewer with download action and status feedback.
 
 ## Locked top-level product areas
 1. Auth
