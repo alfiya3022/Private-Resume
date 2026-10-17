@@ -19,9 +19,17 @@ import {
   Cloud,
   Wrench,
   Check,
+  Save,
+  Lock,
+  Plus,
+  Trash2,
+  Edit3,
+  RefreshCw,
+  X,
 } from 'lucide-react';
 import { jobsApi } from '../api/jobs';
 import { profileApi } from '../api/profile';
+import { tailoringApi } from '../api/tailoring';
 
 export default function WorkspacePage({ currentUser }) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -31,6 +39,26 @@ export default function WorkspacePage({ currentUser }) {
   const [activeJob, setActiveJob] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [matchData, setMatchData] = useState(null);
+
+  // Stage 4 Tailoring state
+  const [tailoredResumes, setTailoredResumes] = useState([]);
+  const [activeTailoredResume, setActiveTailoredResume] = useState(null);
+  const [editableContent, setEditableContent] = useState(null);
+  const [targetRoleInput, setTargetRoleInput] = useState('');
+  const [tailorLoading, setTailorLoading] = useState(false);
+  const [tailorSaving, setTailorSaving] = useState(false);
+  const [aiModal, setAiModal] = useState({
+    isOpen: false,
+    section: '',
+    fieldKey: '',
+    index: null,
+    bulletIndex: null,
+    currentText: '',
+    suggestedText: '',
+    explanation: '',
+    instruction: '',
+    loading: false,
+  });
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -67,6 +95,7 @@ export default function WorkspacePage({ currentUser }) {
     if (activeJob) {
       loadJobAnalysis(activeJob.id);
       loadJobMatch(activeJob.id);
+      loadJobTailoredResumes(activeJob.id);
     }
   }, [activeJob]);
 
@@ -107,6 +136,160 @@ export default function WorkspacePage({ currentUser }) {
     } catch (err) {
       setMatchData(null);
     }
+  };
+
+  const loadJobTailoredResumes = async (jobId) => {
+    try {
+      const data = await tailoringApi.getJobTailoredResumes(jobId);
+      setTailoredResumes(data || []);
+      if (data && data.length > 0) {
+        const latest = data[data.length - 1];
+        setActiveTailoredResume(latest);
+        setEditableContent(JSON.parse(JSON.stringify(latest.content || {})));
+        setTargetRoleInput(latest.target_role || '');
+      } else {
+        setActiveTailoredResume(null);
+        setEditableContent(null);
+        setTargetRoleInput('');
+      }
+    } catch (err) {
+      setTailoredResumes([]);
+    }
+  };
+
+  const handleSelectVersion = (versionId) => {
+    const selected = tailoredResumes.find((r) => r.id === parseInt(versionId, 10));
+    if (selected) {
+      setActiveTailoredResume(selected);
+      setEditableContent(JSON.parse(JSON.stringify(selected.content || {})));
+      setTargetRoleInput(selected.target_role || '');
+    }
+  };
+
+  const handleTriggerTailor = async () => {
+    if (!activeJob) return;
+    setTailorLoading(true);
+    setErrorMsg('');
+    try {
+      const created = await tailoringApi.tailorResumeForJob(activeJob.id);
+      setTailoredResumes((prev) => [...prev, created]);
+      setActiveTailoredResume(created);
+      setEditableContent(JSON.parse(JSON.stringify(created.content || {})));
+      setTargetRoleInput(created.target_role || '');
+      setSuccessMsg(`Draft v${created.version_number} tailored successfully from candidate evidence.`);
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to tailor resume.');
+    } finally {
+      setTailorLoading(false);
+    }
+  };
+
+  const handleSaveResume = async (saveAsNewVersion = false) => {
+    if (!activeTailoredResume || !editableContent) return;
+    setTailorSaving(true);
+    setErrorMsg('');
+    try {
+      const saved = await tailoringApi.updateTailoredResume(activeTailoredResume.id, {
+        content: editableContent,
+        target_role: targetRoleInput,
+        save_as_new_version: saveAsNewVersion,
+      });
+      if (saveAsNewVersion || activeTailoredResume.status === 'final') {
+        setTailoredResumes((prev) => [...prev, saved]);
+        setActiveTailoredResume(saved);
+        setEditableContent(JSON.parse(JSON.stringify(saved.content || {})));
+        setTargetRoleInput(saved.target_role || '');
+        setSuccessMsg(`New immutable version v${saved.version_number} created.`);
+      } else {
+        setTailoredResumes((prev) => prev.map((r) => (r.id === saved.id ? saved : r)));
+        setActiveTailoredResume(saved);
+        setSuccessMsg(`Draft v${saved.version_number} saved.`);
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to save resume.');
+    } finally {
+      setTailorSaving(false);
+    }
+  };
+
+  const handleFinalizeResume = async () => {
+    if (!activeTailoredResume) return;
+    setTailorSaving(true);
+    setErrorMsg('');
+    try {
+      const finalized = await tailoringApi.finalizeTailoredResume(activeTailoredResume.id);
+      setTailoredResumes((prev) => prev.map((r) => (r.id === finalized.id ? finalized : r)));
+      setActiveTailoredResume(finalized);
+      setSuccessMsg(`Version v${finalized.version_number} approved and locked as FINAL.`);
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to finalize resume.');
+    } finally {
+      setTailorSaving(false);
+    }
+  };
+
+  const openAskAiModal = ({ section, fieldKey, index = null, bulletIndex = null, currentText = '' }) => {
+    setAiModal({
+      isOpen: true,
+      section,
+      fieldKey,
+      index,
+      bulletIndex,
+      currentText,
+      suggestedText: '',
+      explanation: '',
+      instruction: '',
+      loading: false,
+    });
+  };
+
+  const runAskAi = async (customInstruction) => {
+    const instruction = customInstruction || aiModal.instruction;
+    if (!instruction || !instruction.trim()) return;
+    setAiModal((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await tailoringApi.askAIEdit(activeTailoredResume.id, {
+        section: aiModal.section,
+        instruction,
+        current_text: aiModal.currentText,
+      });
+      setAiModal((prev) => ({
+        ...prev,
+        suggestedText: res.suggested_text,
+        explanation: res.explanation,
+        instruction,
+        loading: false,
+      }));
+    } catch (err) {
+      setErrorMsg(err.message || 'AI refinement request failed.');
+      setAiModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const applyAiSuggestion = () => {
+    if (!aiModal.suggestedText || !editableContent) return;
+    const updated = JSON.parse(JSON.stringify(editableContent));
+
+    if (aiModal.section === 'summary') {
+      updated.summary = aiModal.suggestedText;
+    } else if (aiModal.section === 'experience' && aiModal.index !== null) {
+      if (aiModal.bulletIndex !== null) {
+        updated.experience[aiModal.index].bullets[aiModal.bulletIndex] = aiModal.suggestedText.replace(/^[•\-\*]\s*/, '');
+      } else {
+        const lines = aiModal.suggestedText.split('\n').map((l) => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean);
+        updated.experience[aiModal.index].bullets = lines;
+      }
+    } else if (aiModal.section === 'projects' && aiModal.index !== null) {
+      if (aiModal.bulletIndex !== null) {
+        updated.projects[aiModal.index].bullets[aiModal.bulletIndex] = aiModal.suggestedText.replace(/^[•\-\*]\s*/, '');
+      } else {
+        const lines = aiModal.suggestedText.split('\n').map((l) => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean);
+        updated.projects[aiModal.index].bullets = lines;
+      }
+    }
+    setEditableContent(updated);
+    setAiModal((prev) => ({ ...prev, isOpen: false }));
+    setSuccessMsg(`AI refinement applied to ${aiModal.section}. Review and save version.`);
   };
 
   const handleTriggerMatch = async () => {
@@ -892,14 +1075,621 @@ export default function WorkspacePage({ currentUser }) {
         </div>
       )}
 
-      {/* Stages 4 & 5 placeholders */}
-      {currentStep > 3 && (
-        <div className="card-brutal text-center py-12 space-y-3 font-mono">
-          <p className="text-sm font-bold text-charcoal">Stage {currentStep}: Upcoming Epic Workflow</p>
-          <p className="text-xs text-charcoal-muted">Progressive workflow stage will activate as subsequent epics are implemented.</p>
-          <button onClick={() => setCurrentStep(3)} className="btn-secondary text-xs mt-2">
-            Return to Stage 3: Evidence Matching
+      {/* Stage 4: Tailored Resume & Section Editing */}
+      {currentStep === 4 && (
+        <div className="space-y-6">
+          {!activeTailoredResume ? (
+            <div className="card-brutal text-center py-12 space-y-4 font-mono">
+              <div className="w-12 h-12 rounded-full border-2 border-charcoal bg-amber-50 flex items-center justify-center mx-auto text-amber-900">
+                <Sparkles className="w-6 h-6 text-coral" />
+              </div>
+              <h2 className="text-base font-bold uppercase tracking-wider text-charcoal">
+                Stage 4: Tailored Resume Generation
+              </h2>
+              <p className="text-xs text-charcoal-muted max-w-lg mx-auto">
+                Generate an evidence-grounded resume draft specifically tailored for{' '}
+                <strong>{activeJob?.title}</strong> at <strong>{activeJob?.company}</strong>.
+              </p>
+              <div className="p-3 bg-amber-50 border-2 border-amber-300 max-w-lg mx-auto text-[11px] text-amber-950 text-left">
+                <strong>Constitutional Rule:</strong> The generator only utilizes verified candidate profile evidence.
+                Missing skills identified during Stage 3 matching are <em>never</em> fabricated.
+              </div>
+              <div className="pt-2">
+                <button
+                  onClick={handleTriggerTailor}
+                  disabled={tailorLoading}
+                  className="btn-primary inline-flex items-center space-x-2 text-xs"
+                >
+                  {tailorLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      <span>Generating Evidence-Based Draft...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Generate Tailored Resume (Draft v1)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 font-mono">
+              {/* Version & Control Bar */}
+              <div className="card-brutal bg-white p-4 flex flex-wrap items-center justify-between gap-4 border-2 border-charcoal shadow-brutal-sm">
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs font-bold uppercase text-charcoal tracking-wider">Version:</span>
+                  <select
+                    value={activeTailoredResume.id}
+                    onChange={(e) => handleSelectVersion(e.target.value)}
+                    className="input-brutal py-1 px-2.5 text-xs font-bold"
+                  >
+                    {tailoredResumes.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        v{v.version_number} ({v.status.toUpperCase()}) -{' '}
+                        {new Date(v.created_at).toLocaleDateString()}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    className={`badge-tag ${
+                      activeTailoredResume.status === 'final'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-600'
+                        : 'bg-amber-50 text-amber-900 border-amber-600'
+                    }`}
+                  >
+                    {activeTailoredResume.status.toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => handleSaveResume(false)}
+                    disabled={tailorSaving || activeTailoredResume.status === 'final'}
+                    className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3"
+                    title={
+                      activeTailoredResume.status === 'final'
+                        ? 'Final versions are immutable. Use Save as New Version.'
+                        : 'Save draft in-place'
+                    }
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Working Draft</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleSaveResume(true)}
+                    disabled={tailorSaving}
+                    className="btn-primary text-xs flex items-center space-x-1.5 py-1.5 px-3"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Save as New Version (v{activeTailoredResume.version_number + 1})</span>
+                  </button>
+
+                  {activeTailoredResume.status !== 'final' && (
+                    <button
+                      onClick={handleFinalizeResume}
+                      disabled={tailorSaving}
+                      className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 border-emerald-600 text-emerald-900 bg-emerald-50 hover:bg-emerald-100"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Lock as Final</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Anti-fabrication reminder */}
+              <div className="p-3 bg-amber-50 border-2 border-charcoal text-xs text-amber-950 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                  <span>
+                    <strong>Human Oversight Required:</strong> AI recommends; candidate reviews and approves.
+                    Unsupported claims or missing skills will never be automatically added.
+                  </span>
+                </div>
+              </div>
+
+              {/* Resume Content Sections */}
+              {editableContent && (
+                <div className="space-y-6">
+                  {/* 1. Target Role & Professional Summary */}
+                  <div className="card-brutal bg-white p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-cream-border pb-2">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
+                        <Briefcase className="w-4 h-4 text-coral" />
+                        <span>Target Role & Professional Summary</span>
+                      </h3>
+                      <button
+                        onClick={() =>
+                          openAskAiModal({
+                            section: 'summary',
+                            fieldKey: 'summary',
+                            currentText: editableContent.summary,
+                          })
+                        }
+                        className="btn-secondary text-xs py-1 px-2.5 flex items-center space-x-1 text-coral border-coral hover:bg-coral hover:text-white"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>Ask AI to Polish Summary</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-charcoal-muted uppercase mb-1">
+                          Resume Headline / Target Role
+                        </label>
+                        <input
+                          type="text"
+                          value={targetRoleInput}
+                          onChange={(e) => setTargetRoleInput(e.target.value)}
+                          className="input-brutal w-full text-xs font-bold"
+                          placeholder="e.g. Lead FastAPI Backend Engineer"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-charcoal-muted uppercase mb-1">
+                          Executive Professional Summary
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={editableContent.summary || ''}
+                          onChange={(e) =>
+                            setEditableContent({ ...editableContent, summary: e.target.value })
+                          }
+                          className="input-brutal w-full text-xs leading-relaxed"
+                          placeholder="Enter summary..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Core Technical Skills */}
+                  <div className="card-brutal bg-white p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-cream-border pb-2">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
+                        <Code2 className="w-4 h-4 text-coral" />
+                        <span>Technical Competencies (Evidence-Grounded)</span>
+                      </h3>
+                      <span className="badge-tag bg-emerald-50 text-emerald-900 border-emerald-600">
+                        Candidate Profile Backed
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(editableContent.skills || {}).map(([category, skillsList]) => (
+                        <div key={category} className="border border-cream-border p-3 space-y-2 bg-cream-bg/40">
+                          <span className="text-xs font-bold text-charcoal uppercase tracking-wider block">
+                            {category} ({skillsList.length})
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {skillsList.map((skill, sIdx) => (
+                              <span
+                                key={sIdx}
+                                className="badge-tag bg-white text-charcoal border-charcoal flex items-center space-x-1"
+                              >
+                                <span>{skill}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = { ...editableContent };
+                                    updated.skills[category] = updated.skills[category].filter((_, idx) => idx !== sIdx);
+                                    setEditableContent(updated);
+                                  }}
+                                  className="hover:text-rose-600 ml-1 text-[10px]"
+                                  title="Remove skill from tailored version"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 3. Work Experience */}
+                  <div className="card-brutal bg-white p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-cream-border pb-2">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
+                        <Building className="w-4 h-4 text-coral" />
+                        <span>Work Experience ({editableContent.experience?.length || 0})</span>
+                      </h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      {editableContent.experience?.map((exp, expIdx) => (
+                        <div key={expIdx} className="border-2 border-charcoal p-4 space-y-3 bg-cream-bg/20">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-border pb-2">
+                            <div>
+                              <span className="font-bold text-xs text-charcoal">{exp.title}</span>
+                              <span className="text-xs text-charcoal-muted"> at </span>
+                              <span className="font-bold text-xs text-charcoal">{exp.company}</span>
+                              {exp.location && (
+                                <span className="text-[11px] text-charcoal-muted"> • {exp.location}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-[11px] text-charcoal-muted font-mono">
+                                {exp.start_date} - {exp.end_date}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  openAskAiModal({
+                                    section: 'experience',
+                                    fieldKey: 'bullets',
+                                    index: expIdx,
+                                    currentText: (exp.bullets || []).join('\n'),
+                                  })
+                                }
+                                className="btn-secondary text-[11px] py-0.5 px-2 text-coral border-coral hover:bg-coral hover:text-white flex items-center space-x-1"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                <span>Ask AI on Role</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <span className="text-[11px] font-bold text-charcoal-muted uppercase">
+                              Accomplishment Bullets
+                            </span>
+                            {exp.bullets?.map((bullet, bIdx) => (
+                              <div key={bIdx} className="flex items-start space-x-2">
+                                <span className="text-charcoal-muted text-xs mt-1.5">•</span>
+                                <textarea
+                                  rows={2}
+                                  value={bullet}
+                                  onChange={(e) => {
+                                    const updated = { ...editableContent };
+                                    updated.experience[expIdx].bullets[bIdx] = e.target.value;
+                                    setEditableContent(updated);
+                                  }}
+                                  className="input-brutal flex-1 text-xs leading-relaxed"
+                                />
+                                <div className="flex flex-col space-y-1">
+                                  <button
+                                    onClick={() =>
+                                      openAskAiModal({
+                                        section: 'experience',
+                                        fieldKey: 'bullet',
+                                        index: expIdx,
+                                        bulletIndex: bIdx,
+                                        currentText: bullet,
+                                      })
+                                    }
+                                    className="p-1 border border-charcoal hover:bg-cream-bg text-coral"
+                                    title="Ask AI to refine this bullet"
+                                  >
+                                    <Sparkles className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const updated = { ...editableContent };
+                                      updated.experience[expIdx].bullets = updated.experience[expIdx].bullets.filter(
+                                        (_, idx) => idx !== bIdx
+                                      );
+                                      setEditableContent(updated);
+                                    }}
+                                    className="p-1 border border-charcoal hover:bg-rose-50 text-rose-700"
+                                    title="Remove bullet"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...editableContent };
+                                updated.experience[expIdx].bullets = [
+                                  ...(updated.experience[expIdx].bullets || []),
+                                  'Contributed to core deliverables and team execution.',
+                                ];
+                                setEditableContent(updated);
+                              }}
+                              className="btn-secondary text-[11px] py-1 px-2.5 flex items-center space-x-1 mt-2"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add Bullet Point</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 4. Projects */}
+                  <div className="card-brutal bg-white p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-cream-border pb-2">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
+                        <Layers className="w-4 h-4 text-coral" />
+                        <span>Key Projects ({editableContent.projects?.length || 0})</span>
+                      </h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      {editableContent.projects?.map((proj, pIdx) => (
+                        <div key={pIdx} className="border-2 border-charcoal p-4 space-y-3 bg-cream-bg/20">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-border pb-2">
+                            <div>
+                              <span className="font-bold text-xs text-charcoal">{proj.name}</span>
+                              {proj.link && (
+                                <a
+                                  href={proj.link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[11px] text-coral ml-2 hover:underline inline-flex items-center space-x-0.5"
+                                >
+                                  <LinkIcon className="w-3 h-3" />
+                                  <span>Repository</span>
+                                </a>
+                              )}
+                            </div>
+                            <button
+                              onClick={() =>
+                                openAskAiModal({
+                                  section: 'projects',
+                                  fieldKey: 'bullets',
+                                  index: pIdx,
+                                  currentText: (proj.bullets || []).join('\n'),
+                                })
+                              }
+                              className="btn-secondary text-[11px] py-0.5 px-2 text-coral border-coral hover:bg-coral hover:text-white flex items-center space-x-1"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              <span>Ask AI on Project</span>
+                            </button>
+                          </div>
+
+                          {proj.technologies && proj.technologies.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {proj.technologies.map((t, tIdx) => (
+                                <span
+                                  key={tIdx}
+                                  className="badge-tag text-[10px] bg-white text-charcoal border-charcoal"
+                                >
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="space-y-2">
+                            {proj.bullets?.map((bullet, bIdx) => (
+                              <div key={bIdx} className="flex items-start space-x-2">
+                                <span className="text-charcoal-muted text-xs mt-1.5">•</span>
+                                <textarea
+                                  rows={2}
+                                  value={bullet}
+                                  onChange={(e) => {
+                                    const updated = { ...editableContent };
+                                    updated.projects[pIdx].bullets[bIdx] = e.target.value;
+                                    setEditableContent(updated);
+                                  }}
+                                  className="input-brutal flex-1 text-xs leading-relaxed"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const updated = { ...editableContent };
+                                    updated.projects[pIdx].bullets = updated.projects[pIdx].bullets.filter(
+                                      (_, idx) => idx !== bIdx
+                                    );
+                                    setEditableContent(updated);
+                                  }}
+                                  className="p-1 border border-charcoal hover:bg-rose-50 text-rose-700"
+                                  title="Remove bullet"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 5. Education & Certifications */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="card-brutal bg-white p-5 space-y-3">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal border-b border-cream-border pb-2">
+                        Education Records ({editableContent.education?.length || 0})
+                      </h3>
+                      <div className="space-y-2">
+                        {editableContent.education?.map((edu, idx) => (
+                          <div key={idx} className="p-2 border border-cream-border text-xs space-y-0.5">
+                            <span className="font-bold text-charcoal block">{edu.degree}</span>
+                            <span className="text-charcoal-muted block">
+                              {edu.institution} {edu.year ? `(${edu.year})` : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="card-brutal bg-white p-5 space-y-3">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal border-b border-cream-border pb-2">
+                        Certifications ({editableContent.certifications?.length || 0})
+                      </h3>
+                      <div className="space-y-2">
+                        {editableContent.certifications?.map((cert, idx) => (
+                          <div key={idx} className="p-2 border border-cream-border text-xs space-y-0.5">
+                            <span className="font-bold text-charcoal block">{cert.name}</span>
+                            <span className="text-charcoal-muted block">
+                              {cert.issuer} {cert.year ? `• ${cert.year}` : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation CTAs */}
+              <div className="flex justify-between items-center pt-4 border-t border-cream-border">
+                <button onClick={() => setCurrentStep(3)} className="btn-secondary text-xs">
+                  ← Back to Stage 3: Match Evidence
+                </button>
+                <button onClick={() => setCurrentStep(5)} className="btn-primary flex items-center space-x-2">
+                  <span>Proceed to Stage 5: Validate & PDF</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Stage 5: Final Resume & LaTeX Compilation placeholder */}
+      {currentStep === 5 && (
+        <div className="card-brutal text-center py-12 space-y-4 font-mono">
+          <div className="w-12 h-12 rounded-full border-2 border-charcoal bg-white flex items-center justify-center mx-auto text-charcoal">
+            <FileCode className="w-6 h-6 text-coral" />
+          </div>
+          <h2 className="text-base font-bold uppercase tracking-wider text-charcoal">
+            Stage 5: Final Resume & LaTeX Compilation
+          </h2>
+          <p className="text-xs text-charcoal-muted max-w-lg mx-auto">
+            Upcoming Epic 7 & 8: Structured content injection into LaTeX template, compilation to ATS-ready PDF,
+            and objective multi-point resume validation.
+          </p>
+          <button onClick={() => setCurrentStep(4)} className="btn-secondary text-xs mt-2">
+            ← Return to Stage 4: Resume Tailoring
           </button>
+        </div>
+      )}
+
+      {/* Ask AI Consultation Modal */}
+      {aiModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="card-brutal bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-4 p-6 border-2 border-charcoal shadow-brutal font-mono animate-in fade-in duration-150">
+            <div className="flex items-center justify-between border-b-2 border-charcoal pb-3">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="w-5 h-5 text-coral" />
+                <h3 className="font-bold text-sm uppercase tracking-wider text-charcoal">
+                  Consult AI: Refine {aiModal.section.toUpperCase()}
+                </h3>
+              </div>
+              <button
+                onClick={() => setAiModal((prev) => ({ ...prev, isOpen: false }))}
+                className="p-1 hover:bg-cream-bg border border-charcoal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-300 text-[11px] text-amber-950">
+              <strong>Anti-Fabrication Rule:</strong> AI refinement will polish phrasing and emphasize genuine
+              qualifications, but will never invent unbacked skills or technologies.
+            </div>
+
+            {/* Current Text */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-charcoal-muted uppercase">Current Content</label>
+              <div className="p-2.5 bg-cream-bg border border-charcoal text-xs text-charcoal whitespace-pre-line max-h-32 overflow-y-auto">
+                {aiModal.currentText || '(Empty)'}
+              </div>
+            </div>
+
+            {/* Quick Prompt Suggestions */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-charcoal-muted uppercase">Refinement Directives</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Emphasize measurable outcomes and technical metrics',
+                  'Tighten phrasing with strong active engineering verbs',
+                  'Align terminology with job requirements without inventing skills',
+                  'Be concise, direct, and eliminate passive voice',
+                ].map((promptText, pIdx) => (
+                  <button
+                    key={pIdx}
+                    type="button"
+                    onClick={() => {
+                      setAiModal((prev) => ({ ...prev, instruction: promptText }));
+                      runAskAi(promptText);
+                    }}
+                    className="badge-tag bg-white hover:bg-cream-bg text-charcoal border-charcoal text-[11px] cursor-pointer"
+                  >
+                    ⚡ {promptText}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Instruction Input */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-charcoal-muted uppercase">
+                Custom Instruction (Optional)
+              </label>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={aiModal.instruction}
+                  onChange={(e) => setAiModal({ ...aiModal, instruction: e.target.value })}
+                  placeholder="e.g. Focus on high-throughput distributed system design..."
+                  className="input-brutal flex-1 text-xs"
+                />
+                <button
+                  type="button"
+                  disabled={aiModal.loading || !aiModal.instruction.trim()}
+                  onClick={() => runAskAi()}
+                  className="btn-primary text-xs py-1.5 px-3 flex items-center space-x-1"
+                >
+                  {aiModal.loading ? (
+                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  <span>Generate</span>
+                </button>
+              </div>
+            </div>
+
+            {/* AI Proposed Revision */}
+            {aiModal.suggestedText && (
+              <div className="space-y-3 border-t border-cream-border pt-3">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-emerald-800 uppercase flex items-center space-x-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Proposed AI Revision</span>
+                  </span>
+                  <div className="p-3 bg-emerald-50 border-2 border-emerald-600 text-xs text-emerald-950 whitespace-pre-line leading-relaxed font-mono">
+                    {aiModal.suggestedText}
+                  </div>
+                </div>
+
+                {aiModal.explanation && (
+                  <div className="p-2 bg-cream-bg border border-cream-border text-[11px] text-charcoal-muted">
+                    <strong>Rationale:</strong> {aiModal.explanation}
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-2 pt-2">
+                  <button
+                    onClick={() => setAiModal((prev) => ({ ...prev, isOpen: false }))}
+                    className="btn-secondary text-xs"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    onClick={applyAiSuggestion}
+                    className="btn-primary text-xs flex items-center space-x-1.5 bg-emerald-700 hover:bg-emerald-800 border-charcoal"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Accept & Apply Revision</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
