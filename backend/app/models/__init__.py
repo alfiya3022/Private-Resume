@@ -8,6 +8,7 @@ from app.models.profile import (
     Certification,
 )
 from app.models.resume import MasterResume
+from app.models.job import Job
 
 __all__ = [
     "User",
@@ -18,4 +19,5 @@ __all__ = [
     "Education",
     "Certification",
     "MasterResume",
+    "Job",
 ]

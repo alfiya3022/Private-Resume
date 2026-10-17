@@ -1,31 +1,37 @@
 # PrivateResume - Current Project State
 
 ## Project phase
-Epic 2 - Profile + Master Resume Complete. Ready for Epic 3 - Job Management.
+Epic 3 - Job Management Complete. Ready for Epic 4 - JD Analysis.
 
 ## Current status
 - Git repository and foundation verified (Epic 0).
 - User authentication, JWT tokens, and user isolation verified (Epic 1).
-- Candidate master profile & resume ingestion engine verified (Epic 2):
-  - SQLAlchemy relational models for `CandidateProfile`, `CandidateSkill`, `Project`, `Experience`, `Education`, `Certification`, and `MasterResume`.
-  - Local storage service with path traversal protection, user directory isolation, and upload file size limits.
-  - PyMuPDF (`fitz`) text extraction pipeline with section segmentation and canonical skill detection.
-  - Master resume upload flow (`POST /api/v1/resumes`) auto-extracts text and populates candidate profile skills.
-  - Profile CRUD and sub-item endpoints (`/api/v1/profile`, `/skills`, `/projects`, `/experiences`, `/educations`, `/certifications`).
-  - Alembic migration `002_create_profile_tables.py` created.
-  - 22 total automated Pytest tests passing (100% pass rate across unit, API, negative, and security isolation tests).
-  - React Profile Workspace updated with PDF upload drag-and-drop, live parsing feedback, and tabbed evidence editing.
+- Candidate master profile & PyMuPDF resume ingestion verified (Epic 2).
+- Job management & Workspace Stage 1 intake engine verified (Epic 3):
+  - SQLAlchemy relational model for `Job` (`id`, `user_id`, `company`, `title`, `location`, `job_url`, `salary`, `raw_jd_text`, `status`, timestamps).
+  - Pydantic models for job creation, update, and response with non-empty string validation.
+  - Service layer `JobService` implementing job persistence, queries, updates, and cascading user isolation.
+  - REST endpoints operational under `/api/v1/jobs`:
+    - `POST /jobs` (201 Created)
+    - `GET /jobs` (200 OK with optional status filter)
+    - `GET /jobs/{id}` (200 OK; 404 for nonexistent or unauthorized access)
+    - `PUT /jobs/{id}` (200 OK; 404 for unauthorized access)
+    - `DELETE /jobs/{id}` (204 No Content; 404 for unauthorized access)
+  - Alembic migration `003_create_jobs_table.py` created.
+  - 27 total automated Pytest tests passing (100% pass rate across unit, API contracts, negative validation, and security isolation tests).
+  - React Workspace Stage 1 integrated: shows active master resume health, provides target opportunity input form, lists previously saved jobs, and transitions to Stage 2 upon job submission.
   - Both QA test workbooks updated with actual execution records:
-    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (`Auth`, `Master_Resume`, `Profile_Personal`: 20 automated tests logged)
-    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (`Auth`, `Master_Resume`: 5 manual tests logged)
+    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (`Auth`, `Master_Resume`, `Profile_Personal`, `Workspace_Job_Input`: 25 automated tests logged)
+    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (`Auth`, `Master_Resume`, `Workspace_Job_Input`: 7 manual tests logged)
 
 ## Current next step
-Epic 3 - Job Management.
+Epic 4 - JD Analysis.
 Tasks:
-1. Job entity & relational model (`Job` with company, title, location, salary, raw job description text, status).
-2. Job CRUD endpoints (`POST /api/v1/jobs`, `GET /api/v1/jobs`, `GET /api/v1/jobs/{id}`, `PUT /api/v1/jobs/{id}`, `DELETE /api/v1/jobs/{id}`).
-3. Workspace Stage 1 integration with Job creation and master resume linkage.
-4. Pytest suite for Job management, validation, and multi-tenant isolation.
+1. Ollama provider abstraction (`app/services/ai/ollama_provider.py`) communicating with local host Ollama instance (`http://localhost:11434`).
+2. Structured output validation schemas for required vs preferred skills, frameworks, databases, tools, cloud, responsibilities, and qualifications.
+3. Job requirements persistence (`JobRequirement` model and `004_create_analysis_tables.py`).
+4. Endpoint: `POST /api/v1/jobs/{job_id}/analyze`.
+5. Frontend Stage 2 Job Analysis interactive view.
 
 ## Locked top-level product areas
 1. Auth
@@ -62,4 +68,4 @@ React, Vite, JavaScript, Tailwind CSS, Python, FastAPI, Pydantic, SQLAlchemy, Po
 No autonomous job applications, no fabricated qualifications, no recruiter portal, no candidate ranking, no V1 job-board integrations, no unnecessary infrastructure additions.
 
 ## Current issues
-None. Epics 0, 1, and 2 verified and passing.
+None. Epics 0, 1, 2, and 3 verified and passing.
