@@ -1,12 +1,12 @@
 import React from 'react';
 import { FileText, Briefcase, User, CheckCircle2, Shield } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab, healthData }) {
+export default function Navbar({ activeTab, setActiveTab, healthData, currentUser }) {
   const navItems = [
     { id: 'workspace', label: 'Workspace', icon: Briefcase },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'applications', label: 'Applications', icon: CheckCircle2 },
-    { id: 'auth', label: 'Auth', icon: Shield },
+    { id: 'auth', label: currentUser ? (currentUser.full_name || currentUser.email.split('@')[0]) : 'Auth', icon: Shield },
   ];
 
   return (

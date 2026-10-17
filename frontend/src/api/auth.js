@@ -1,0 +1,37 @@
+import { api } from './client';
+
+export const authApi = {
+  async login(email, password) {
+    const data = await api.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (data?.access_token) {
+      api.setToken(data.access_token);
+    }
+    return data;
+  },
+
+  async register(email, password, fullName = '') {
+    return api.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        password,
+        full_name: fullName || null,
+      }),
+    });
+  },
+
+  async getMe() {
+    return api.request('/auth/me');
+  },
+
+  logout() {
+    api.setToken(null);
+  },
+
+  isAuthenticated() {
+    return !!api.getToken();
+  },
+};
