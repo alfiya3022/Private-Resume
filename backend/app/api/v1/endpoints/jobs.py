@@ -5,7 +5,9 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.job import JobCreate, JobResponse, JobUpdate
+from app.schemas.analysis import JobAnalysisResponse
 from app.services.job_service import job_service
+
 
 router = APIRouter()
 
@@ -77,3 +79,32 @@ def delete_job(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
         )
+
+
+@router.post("/{job_id}/analyze", response_model=JobAnalysisResponse, status_code=status.HTTP_200_OK)
+async def analyze_job(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Trigger AI/deterministic analysis of the target job description."""
+    from app.services.analysis_service import analysis_service
+    return await analysis_service.analyze_job(db=db, user_id=current_user.id, job_id=job_id)
+
+
+@router.get("/{job_id}/analysis", response_model=JobAnalysisResponse)
+def get_job_analysis(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve previously generated structured requirements for this job."""
+    from app.services.analysis_service import analysis_service
+    analysis = analysis_service.get_analysis_by_job_id(db=db, user_id=current_user.id, job_id=job_id)
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis not found for this job. Trigger analysis first.",
+        )
+    return analysis
+

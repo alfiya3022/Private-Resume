@@ -29,4 +29,15 @@ export const jobsApi = {
       method: 'DELETE',
     });
   },
+
+  // JD Analysis (Epic 4)
+  async analyzeJob(jobId) {
+    return api.request(`/jobs/${jobId}/analyze`, {
+      method: 'POST',
+    });
+  },
+
+  async getJobAnalysis(jobId) {
+    return api.request(`/jobs/${jobId}/analysis`);
+  },
 };
