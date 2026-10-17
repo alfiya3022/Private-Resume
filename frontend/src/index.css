@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FAF8F5;
+    color: #1A1A1A;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2 font-medium text-sm text-white bg-coral border-2 border-charcoal shadow-brutal transition-all duration-150 hover:shadow-brutal-hover hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-4 py-2 font-medium text-sm text-charcoal bg-white border-2 border-charcoal shadow-brutal-sm transition-all duration-150 hover:bg-cream-muted hover:shadow-brutal-hover hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .card-brutal {
+    @apply bg-white border-2 border-charcoal shadow-brutal p-6;
+  }
+
+  .card-subtle {
+    @apply bg-white border border-cream-border p-5 rounded-none shadow-sm;
+  }
+
+  .badge-tag {
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-mono font-medium border border-charcoal bg-cream-muted text-charcoal;
+  }
+}
