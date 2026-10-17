@@ -10,6 +10,7 @@ from app.models.profile import (
 from app.models.resume import MasterResume
 from app.models.job import Job
 from app.models.analysis import JobRequirement
+from app.models.match import MatchAnalysis
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "MasterResume",
     "Job",
     "JobRequirement",
+    "MatchAnalysis",
 ]

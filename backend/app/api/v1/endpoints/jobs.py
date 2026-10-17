@@ -6,7 +6,9 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.job import JobCreate, JobResponse, JobUpdate
 from app.schemas.analysis import JobAnalysisResponse
+from app.schemas.match import MatchAnalysisResponse
 from app.services.job_service import job_service
+
 
 
 router = APIRouter()
@@ -107,4 +109,33 @@ def get_job_analysis(
             detail="Analysis not found for this job. Trigger analysis first.",
         )
     return analysis
+
+
+@router.post("/{job_id}/match", response_model=MatchAnalysisResponse, status_code=status.HTTP_200_OK)
+def match_resume_to_job(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Run deterministic matching between candidate profile and target job requirements."""
+    from app.services.matching_service import matching_service
+    return matching_service.calculate_match(db=db, user_id=current_user.id, job_id=job_id)
+
+
+@router.get("/{job_id}/match", response_model=MatchAnalysisResponse)
+def get_job_match(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve existing match analysis for target job."""
+    from app.services.matching_service import matching_service
+    match_data = matching_service.get_match_by_job_id(db=db, user_id=current_user.id, job_id=job_id)
+    if not match_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Match analysis not found for this job. Trigger matching first.",
+        )
+    return match_data
+
 
