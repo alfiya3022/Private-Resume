@@ -1,21 +1,35 @@
 # PrivateResume - Current Project State
 
 ## Project phase
-Epic 0 - Project Foundation Complete. Ready for Epic 1 - Authentication & User Isolation.
+Epic 1 - Authentication & User Isolation Complete. Ready for Epic 2 - Profile + Master Resume.
 
 ## Current status
-- Git repository initialized.
-- Full documentation suite (23 `.md` files) and QA workbooks (`PrivateResume_Manual_Test_Cases.xlsx`, `PrivateResume_Automation_Test_Cases.xlsx`) integrated under `docs/`.
-- FastAPI modular backend scaffolded with Pydantic Settings, SQLAlchemy database engine, Alembic configuration, and `/api/v1/health` subsystem health monitor.
-- Backend smoke tests passing (`pytest` verified: root endpoint and health check passing).
-- React + Vite + Tailwind CSS frontend configured with locked visual language (warm cream base `#FAF8F5`, charcoal typography, coral primary actions, subtle borders, four locked top-level areas).
-- Frontend production build passing (`vite build` compiled cleanly with 0 errors).
-- Docker Compose configured for PostgreSQL (with persistent volume `postgres_data`), FastAPI (with LaTeX runtime), and React.
-- Host runtimes verified: Ollama v0.40.4 and MiKTeX pdfTeX available.
+- Git repository and foundation verified (Epic 0).
+- User authentication and authorization engine implemented and verified (Epic 1):
+  - SQLAlchemy `User` entity with email uniqueness, bcrypt password hashing (12 rounds), active status, and timestamps.
+  - JWT token generation, expiration, and payload decoding via `python-jose`.
+  - Pydantic models for registration, login, token output, and user profile response.
+  - Service layer `AuthService` handling registration, lookup, and password authentication.
+  - FastAPI dependency `get_current_user` enforcing bearer token validation and user identity.
+  - Endpoints operational under `/api/v1/auth`:
+    - `POST /register` (201 Created, duplicate email rejection with 409 Conflict)
+    - `POST /login` (200 OK with bearer access token, 401 on bad credentials)
+    - `GET /me` (200 OK with authenticated user profile, 401 on missing/invalid token)
+  - Alembic migration `001_create_users_table.py` created.
+  - Full automated Pytest suite passing (14 tests passed, including unit, API, negative, and user isolation tests).
+  - Frontend authentication flow connected: registration, login, token persistence in localStorage, active user banner, and logout.
+  - Both QA test workbooks updated with actual execution records:
+    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (`Auth` sheet: 12 tests passed)
+    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (`Auth` sheet: 3 tests passed)
 
 ## Current next step
-Epic 1 - Authentication & User Isolation.
-Tasks: User model, password hashing (bcrypt), JWT token/session management, `/api/v1/auth` endpoints (register, login, me), auth dependency, and user isolation tests.
+Epic 2 - Profile + Master Resume.
+Tasks:
+1. Candidate profile entity & relational models (Personal info, Education, Experience, Projects, Skills, Certifications, Template).
+2. Master resume upload (multipart PDF upload with PyMuPDF text extraction).
+3. Section detection and candidate data structuring.
+4. Profile CRUD API endpoints (`/api/v1/profile`, `/api/v1/resumes`).
+5. Frontend Profile Workspace integration with section-by-section review and editing.
 
 ## Locked top-level product areas
 1. Auth
@@ -52,4 +66,4 @@ React, Vite, JavaScript, Tailwind CSS, Python, FastAPI, Pydantic, SQLAlchemy, Po
 No autonomous job applications, no fabricated qualifications, no recruiter portal, no candidate ranking, no V1 job-board integrations, no unnecessary infrastructure additions.
 
 ## Current issues
-None. Epic 0 foundation verified.
+None. Epics 0 and 1 verified and passing.
