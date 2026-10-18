@@ -1,7 +1,7 @@
 # PrivateResume - Current Project State
 
 ## Project phase
-Epic 7 - LaTeX + PDF Generation Complete. Ready for Epic 8 - Resume Validation Engine.
+Epic 8 - Resume Validation Engine Complete. Ready for Epic 9 - Application Tracking.
 
 ## Current status
 - Git repository and foundation verified (Epic 0).
@@ -11,40 +11,45 @@ Epic 7 - LaTeX + PDF Generation Complete. Ready for Epic 8 - Resume Validation E
 - Local-first JD Analysis & requirements extraction engine verified (Epic 4).
 - Resume-to-Job Matching & Evidence alignment engine verified (Epic 5).
 - Tailored Resume Generation, Versioning & Human Editing verified (Epic 6).
-- LaTeX + PDF Generation & Document Streaming verified (Epic 7):
-  - Controlled LaTeX injection engine (`LatexService`) with rigorous character escaping (`&`, `%`, `$`, `#`, `_`, `{`, `}`, `~`, `^`, `\`) preventing macro injection or compiler breakage.
-  - Native ATS-compliant LaTeX template structure using core typography primitives, compiling in milliseconds without external network/package dependencies.
-  - Isolated subprocess compiler invoking `pdflatex -interaction=nonstopmode -no-shell-escape` within temporary workspaces.
-  - Relational `ResumeArtifact` model storing compiled PDF and TeX source files in isolated user storage (`storage/artifacts/{user_id}/`).
+- LaTeX + PDF Generation & Document Streaming verified (Epic 7).
+- Resume Validation Engine verified (Epic 8):
+  - ATS pre-flight engine (`ValidationService`) evaluating 6 objective checks:
+    1. PDF Document Health (valid page count, structure, size)
+    2. Machine-Readable Text Extractability via PyMuPDF
+    3. Contact Details Detection (Email, Phone, Name in header)
+    4. Standard ATS Headings (Summary, Experience, Skills, Education)
+    5. Template Placeholder Audit (identifies unresolved tokens `TODO`, `[Company]`, `[Title]`, `Lorem ipsum`, `TBD`)
+    6. Candidate Evidence Integrity (verifies skill claims strictly match master candidate profile)
+  - Objective scoring algorithm yielding PASS (100%), WARN (85%), or FAIL (60%) with granular check diagnostics.
+  - Relational `ResumeValidation` model registered in Alembic migration `008_create_validation_tables.py` and applied.
   - REST endpoints operational under `/api/v1/tailored-resumes`:
-    - `POST /{resume_id}/generate-pdf`: Compiles PDF, returns artifact metadata.
-    - `GET /{resume_id}/artifacts`: Lists generated documents and file sizes.
-    - `GET /{resume_id}/pdf`: Streams binary `application/pdf` for inline preview or download.
-    - `GET /{resume_id}/tex`: Streams LaTeX source file for inspection.
-  - Alembic migration `007_create_artifact_tables.py` created and applied.
-  - 40 total automated Pytest tests passing (100% pass rate).
+    - `POST /{resume_id}/validate`: Runs pre-flight audit and persists validation record.
+    - `GET /{resume_id}/validation`: Retrieves existing validation report.
+  - Pytest validation test suite passing (`backend/tests/test_validation.py`):
+    - Uncompiled PDF rejection guard (400 Bad Request)
+    - Full 6-check audit execution and report retrieval
+    - Multi-tenant user isolation enforcement
   - Workspace Stage 5 UI integrated:
-    - Real-time inline PDF preview (`<iframe>`).
-    - Direct "Download PDF" and "LaTeX Source" actions.
-    - Fullscreen document viewer trigger and compilation refresh.
-  - UI content decluttered: streamlined banners and cards across Stages 3, 4, and 5 for a clean, professional aesthetic.
+    - Minimal, sleek "ATS Pre-Flight Quality Gate" card with score pill and status badges.
+    - Interactive 6-check grid with Pass/Warn/Fail indicators and resolution hints.
+    - Automatic validation on PDF compilation with on-demand "Re-Run ATS Audit" capability.
   - Both QA test workbooks updated with actual execution records:
-    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (43 automated tests logged across all modules)
-    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (19 manual tests logged across all modules)
+    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (46 automated tests logged across all modules)
+    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (21 manual tests logged across all modules)
 
 ## Current next step
-Epic 8 - Resume Validation Engine.
+Epic 9 - Application Tracking.
 Tasks:
-1. Validation service (`app/services/validation_service.py`):
-   - Text extractability check (ensures PDF contains selectable, parsable text).
-   - Standard section heading presence (Summary, Experience, Education, Skills).
-   - Contact details detection (email, phone, name).
-   - Placeholder & template artifact check (detecting unresolved `TODO`, `[Company]`, `Lorem ipsum`).
-   - Content integrity check ensuring zero unsupported claims.
-2. Endpoints:
-   - `POST /api/v1/tailored-resumes/{id}/validate`
-   - `GET /api/v1/tailored-resumes/{id}/validation`
-3. Frontend Stage 5 Validation checklist panel with pass/warn/fail status cards.
+1. Application model and schema linking target job, tailored resume version, status history, notes, and application dates.
+2. Application tracking service and endpoints:
+   - `GET /api/v1/applications`: List tracked applications with status filters.
+   - `POST /api/v1/applications`: Log application from Workspace Stage 5 or directly from job.
+   - `PUT /api/v1/applications/{id}/status`: Update lifecycle status (`draft`, `applied`, `interviewing`, `offer`, `rejected`, `archived`).
+   - `POST /api/v1/applications/{id}/notes`: Add chronological application notes.
+3. Dedicated `/applications` frontend page:
+   - Clean Kanban / list view tracking opportunity status pipeline.
+   - Quick link to view submitted tailored resume version and download exact submitted PDF.
+   - Stage 5 "Log Application" CTA button.
 
 ## Locked top-level product areas
 1. Auth

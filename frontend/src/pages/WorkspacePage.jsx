@@ -28,11 +28,15 @@ import {
   X,
   Download,
   ExternalLink,
+  ShieldCheck,
+  AlertTriangle,
+  XCircle,
 } from 'lucide-react';
 import { jobsApi } from '../api/jobs';
 import { profileApi } from '../api/profile';
 import { tailoringApi } from '../api/tailoring';
 import { artifactsApi } from '../api/artifacts';
+import { validationApi } from '../api/validation';
 
 export default function WorkspacePage({ currentUser }) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -63,10 +67,12 @@ export default function WorkspacePage({ currentUser }) {
     loading: false,
   });
 
-  // Stage 5 PDF state
+  // Stage 5 PDF & Validation state
   const [pdfArtifact, setPdfArtifact] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfRefreshKey, setPdfRefreshKey] = useState(0);
+  const [validationReport, setValidationReport] = useState(null);
+  const [validating, setValidating] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -173,8 +179,39 @@ export default function WorkspacePage({ currentUser }) {
       const artifacts = await artifactsApi.getArtifacts(resumeId);
       const pdf = artifacts.find((a) => a.artifact_type === 'pdf');
       setPdfArtifact(pdf || null);
+      if (pdf) {
+        loadValidationReport(resumeId);
+      } else {
+        setValidationReport(null);
+      }
     } catch {
       setPdfArtifact(null);
+      setValidationReport(null);
+    }
+  };
+
+  const loadValidationReport = async (resumeId) => {
+    if (!resumeId) return;
+    try {
+      const report = await validationApi.getValidation(resumeId);
+      setValidationReport(report);
+    } catch {
+      setValidationReport(null);
+    }
+  };
+
+  const handleRunValidation = async () => {
+    if (!activeTailoredResume) return;
+    setValidating(true);
+    setErrorMsg('');
+    try {
+      const report = await validationApi.validateResume(activeTailoredResume.id);
+      setValidationReport(report);
+      setSuccessMsg(`ATS Pre-Flight Audit completed: ${report.overall_status} (${report.score}/100)`);
+    } catch (err) {
+      setErrorMsg(err.message || 'Validation failed. Compile PDF first.');
+    } finally {
+      setValidating(false);
     }
   };
 
@@ -186,7 +223,13 @@ export default function WorkspacePage({ currentUser }) {
       const res = await artifactsApi.generatePdf(activeTailoredResume.id);
       setPdfArtifact(res.pdf_artifact);
       setPdfRefreshKey((k) => k + 1);
-      setSuccessMsg('Resume compiled into ATS-ready PDF successfully.');
+      try {
+        const report = await validationApi.validateResume(activeTailoredResume.id);
+        setValidationReport(report);
+        setSuccessMsg('Resume compiled into ATS-ready PDF and validated.');
+      } catch {
+        setSuccessMsg('Resume compiled into ATS-ready PDF successfully.');
+      }
     } catch (err) {
       setErrorMsg(err.message || 'LaTeX compilation failed.');
     } finally {
@@ -1660,6 +1703,107 @@ export default function WorkspacePage({ currentUser }) {
                   )}
                 </div>
               </div>
+
+              {/* ATS Pre-Flight Quality Gate Panel */}
+              {pdfArtifact && (
+                <div className="card-brutal bg-white p-4 border-2 border-charcoal shadow-brutal-sm space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cream-border pb-3">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-2 border border-charcoal bg-cream-bg">
+                        <ShieldCheck className="w-5 h-5 text-emerald-700" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal">
+                            ATS Pre-Flight Quality Gate
+                          </h3>
+                          {validationReport && (
+                            <span
+                              className={`badge-tag text-[10px] font-bold ${
+                                validationReport.overall_status === 'PASS'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-600'
+                                  : validationReport.overall_status === 'WARN'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-600'
+                                  : 'bg-rose-50 text-rose-800 border-rose-600'
+                              }`}
+                            >
+                              {validationReport.score}/100 • {validationReport.overall_status}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-charcoal-muted">
+                          Automated checks verify PDF structure, extractable text, contact info, headings, and candidate evidence integrity.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleRunValidation}
+                      disabled={validating}
+                      className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg"
+                    >
+                      {validating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-charcoal border-t-transparent" />
+                          <span>Auditing ATS Health...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 text-charcoal-muted" />
+                          <span>{validationReport ? 'Re-Run ATS Audit' : 'Run ATS Audit'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* 6-Point ATS Checklist Grid */}
+                  {validationReport?.checks ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+                      {Object.entries(validationReport.checks).map(([key, check]) => {
+                        const isPass = check.status === 'PASS';
+                        const isWarn = check.status === 'WARN';
+                        return (
+                          <div
+                            key={key}
+                            className={`p-2.5 border text-xs space-y-1 ${
+                              isPass
+                                ? 'border-emerald-200 bg-emerald-50/30'
+                                : isWarn
+                                ? 'border-amber-200 bg-amber-50/30'
+                                : 'border-rose-200 bg-rose-50/30'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-charcoal flex items-center space-x-1.5 text-[11px]">
+                                {isPass && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                                {isWarn && <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+                                {!isPass && !isWarn && <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+                                <span>{check.title}</span>
+                              </span>
+                              <span
+                                className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                                  isPass
+                                    ? 'text-emerald-700 bg-emerald-100'
+                                    : isWarn
+                                    ? 'text-amber-800 bg-amber-100'
+                                    : 'text-rose-800 bg-rose-100'
+                                }`}
+                              >
+                                {check.status}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-charcoal-muted leading-relaxed">{check.message}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-charcoal-muted italic py-1">
+                      Click "Run ATS Audit" to evaluate this compiled PDF against ATS parser benchmarks.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Main PDF Preview Window */}
               {pdfArtifact ? (
