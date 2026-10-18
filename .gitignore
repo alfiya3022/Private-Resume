@@ -72,6 +72,8 @@ Thumbs.db
 
 # Scratch and test files
 data/
+test-results/
+frontend/test-results/
 test_*.tex
 test_*.pdf
 test_*.log
