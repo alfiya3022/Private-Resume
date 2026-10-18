@@ -1,7 +1,7 @@
 # PrivateResume - Current Project State
 
 ## Project phase
-Epic 8 - Resume Validation Engine Complete. Ready for Epic 9 - Application Tracking.
+Epic 9 - Application Tracking Complete. Ready for Epic 10 - Testing, CI & Security Hardening.
 
 ## Current status
 - Git repository and foundation verified (Epic 0).
@@ -12,44 +12,38 @@ Epic 8 - Resume Validation Engine Complete. Ready for Epic 9 - Application Track
 - Resume-to-Job Matching & Evidence alignment engine verified (Epic 5).
 - Tailored Resume Generation, Versioning & Human Editing verified (Epic 6).
 - LaTeX + PDF Generation & Document Streaming verified (Epic 7).
-- Resume Validation Engine verified (Epic 8):
-  - ATS pre-flight engine (`ValidationService`) evaluating 6 objective checks:
-    1. PDF Document Health (valid page count, structure, size)
-    2. Machine-Readable Text Extractability via PyMuPDF
-    3. Contact Details Detection (Email, Phone, Name in header)
-    4. Standard ATS Headings (Summary, Experience, Skills, Education)
-    5. Template Placeholder Audit (identifies unresolved tokens `TODO`, `[Company]`, `[Title]`, `Lorem ipsum`, `TBD`)
-    6. Candidate Evidence Integrity (verifies skill claims strictly match master candidate profile)
-  - Objective scoring algorithm yielding PASS (100%), WARN (85%), or FAIL (60%) with granular check diagnostics.
-  - Relational `ResumeValidation` model registered in Alembic migration `008_create_validation_tables.py` and applied.
-  - REST endpoints operational under `/api/v1/tailored-resumes`:
-    - `POST /{resume_id}/validate`: Runs pre-flight audit and persists validation record.
-    - `GET /{resume_id}/validation`: Retrieves existing validation report.
-  - Pytest validation test suite passing (`backend/tests/test_validation.py`):
-    - Uncompiled PDF rejection guard (400 Bad Request)
-    - Full 6-check audit execution and report retrieval
-    - Multi-tenant user isolation enforcement
-  - Workspace Stage 5 UI integrated:
-    - Minimal, sleek "ATS Pre-Flight Quality Gate" card with score pill and status badges.
-    - Interactive 6-check grid with Pass/Warn/Fail indicators and resolution hints.
-    - Automatic validation on PDF compilation with on-demand "Re-Run ATS Audit" capability.
+- Resume Validation Engine verified (Epic 8).
+- Application Tracking Engine & Dashboard verified (Epic 9):
+  - Relational `Application` model linking target job, tailored resume snapshot, user, and lifecycle status (`draft`, `applied`, `interviewing`, `offer`, `rejected`, `archived`).
+  - Alembic migration `009_create_application_tables.py` created and applied.
+  - REST endpoints operational under `/api/v1/applications`:
+    - `POST /api/v1/applications`: Log application with target job and tailored resume version.
+    - `GET /api/v1/applications`: List tracked applications with status filters.
+    - `GET /api/v1/applications/{id}`: Detailed application inspection.
+    - `PATCH /api/v1/applications/{id}`: Live status transition and chronological interview notes.
+    - `DELETE /api/v1/applications/{id}`: Safe application removal.
+  - Dedicated `/applications` Pipeline Dashboard (`ApplicationsPage.jsx`):
+    - Clean search and status filter tabs (`All`, `Applied`, `Interviewing`, `Offer`, `Declined`, `Draft`).
+    - Inline status change dropdown and chronological interview notes editor.
+    - Direct PDF download link pointing to the exact tailored resume version submitted.
+  - Workspace Stage 5 Integration:
+    - 1-click "Log Application" button to record submitted resume directly into the pipeline.
+  - Pytest application test suite passing (`backend/tests/test_applications.py`):
+    - Application creation and relational summary loading.
+    - Status filtering and interview notes editing.
+    - Application record deletion.
+    - Multi-tenant security isolation.
+  - 47 total automated Pytest tests passing (100% pass rate).
   - Both QA test workbooks updated with actual execution records:
-    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (46 automated tests logged across all modules)
-    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (21 manual tests logged across all modules)
+    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (50 automated tests logged across all modules)
+    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (23 manual tests logged across all modules)
 
 ## Current next step
-Epic 9 - Application Tracking.
+Epic 10 - Testing, CI & Security Hardening.
 Tasks:
-1. Application model and schema linking target job, tailored resume version, status history, notes, and application dates.
-2. Application tracking service and endpoints:
-   - `GET /api/v1/applications`: List tracked applications with status filters.
-   - `POST /api/v1/applications`: Log application from Workspace Stage 5 or directly from job.
-   - `PUT /api/v1/applications/{id}/status`: Update lifecycle status (`draft`, `applied`, `interviewing`, `offer`, `rejected`, `archived`).
-   - `POST /api/v1/applications/{id}/notes`: Add chronological application notes.
-3. Dedicated `/applications` frontend page:
-   - Clean Kanban / list view tracking opportunity status pipeline.
-   - Quick link to view submitted tailored resume version and download exact submitted PDF.
-   - Stage 5 "Log Application" CTA button.
+1. Playwright end-to-end (E2E) browser testing suite covering the complete candidate workflow (Registration $\to$ Profile Setup $\to$ Job Intake $\to$ Match Analysis $\to$ Resume Tailoring $\to$ ATS Validation & PDF Generation $\to$ Application Logging).
+2. GitHub Actions CI pipeline configuration (`.github/workflows/ci.yml`) automating backend linting, type checks, Pytest suite, frontend build, and security scanning on every push/PR.
+3. Security hardening audit (rate limiting, secure headers, CORS lockdown, non-fabrication boundary verification).
 
 ## Locked top-level product areas
 1. Auth

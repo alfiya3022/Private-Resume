@@ -37,6 +37,7 @@ import { profileApi } from '../api/profile';
 import { tailoringApi } from '../api/tailoring';
 import { artifactsApi } from '../api/artifacts';
 import { validationApi } from '../api/validation';
+import { applicationsApi } from '../api/applications';
 
 export default function WorkspacePage({ currentUser }) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -73,6 +74,7 @@ export default function WorkspacePage({ currentUser }) {
   const [pdfRefreshKey, setPdfRefreshKey] = useState(0);
   const [validationReport, setValidationReport] = useState(null);
   const [validating, setValidating] = useState(false);
+  const [loggingApp, setLoggingApp] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -234,6 +236,25 @@ export default function WorkspacePage({ currentUser }) {
       setErrorMsg(err.message || 'LaTeX compilation failed.');
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  const handleLogApplication = async () => {
+    if (!activeJob || !activeTailoredResume) return;
+    setLoggingApp(true);
+    setErrorMsg('');
+    try {
+      await applicationsApi.createApplication({
+        job_id: activeJob.id,
+        tailored_resume_id: activeTailoredResume.id,
+        status: 'applied',
+        notes: `Submitted application with Tailored v${activeTailoredResume.version_number}. Verified ATS compliance.`,
+      });
+      setSuccessMsg(`Application for ${activeJob.company} logged successfully! View in Applications pipeline.`);
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to log application.');
+    } finally {
+      setLoggingApp(false);
     }
   };
 
@@ -1672,6 +1693,16 @@ export default function WorkspacePage({ currentUser }) {
 
                   {pdfArtifact && (
                     <>
+                      <button
+                        onClick={handleLogApplication}
+                        disabled={loggingApp}
+                        className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg text-emerald-800 border-emerald-600"
+                        title="Record this submitted version in your Application Pipeline"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{loggingApp ? 'Logging...' : 'Log Application'}</span>
+                      </button>
+
                       <a
                         href={artifactsApi.getPdfUrl(activeTailoredResume.id)}
                         download={`Resume_${activeJob?.company || 'Tailored'}.pdf`}
