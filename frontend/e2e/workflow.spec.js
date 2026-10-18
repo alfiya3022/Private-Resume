@@ -6,6 +6,7 @@ test.describe('PrivateResume E2E Candidate Workflow', () => {
 
     // Check Header Branding
     await expect(page.locator('header').getByText('PrivateResume', { exact: true })).toBeVisible();
+    await expect(page.locator('text=Local-First V1')).toBeVisible();
 
     // Check Navigation Tabs
     await expect(page.getByRole('button', { name: 'Workspace' })).toBeVisible();
@@ -20,7 +21,7 @@ test.describe('PrivateResume E2E Candidate Workflow', () => {
     await page.goto('/');
 
     // 1. Sign In
-    const authNavButton = page.locator('header button').last();
+    const authNavButton = page.locator('header nav button').last();
     await authNavButton.click();
 
     const signOutBtn = page.getByRole('button', { name: 'Sign Out' });
@@ -56,7 +57,7 @@ test.describe('PrivateResume E2E Candidate Workflow', () => {
     await expect(page.getByRole('button', { name: 'Interviewing' })).toBeVisible();
 
     // 5. Clean Sign Out
-    await page.locator('header button').last().click();
+    await page.locator('header nav button').last().click();
     await page.getByRole('button', { name: 'Sign Out' }).click();
     await expect(page.locator('text=Welcome to PrivateResume')).toBeVisible();
   });
