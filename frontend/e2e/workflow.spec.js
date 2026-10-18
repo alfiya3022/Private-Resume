@@ -40,8 +40,8 @@ test.describe('PrivateResume E2E Candidate Workflow', () => {
     // 2. Profile Inspection
     await page.getByRole('button', { name: 'Profile' }).click();
     await expect(page.getByText('Master Resume PDF', { exact: true })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: /Personal Info/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Skills/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Personal Info', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Skills', exact: true })).toBeVisible();
 
     // 3. Workspace Inspection
     await page.getByRole('button', { name: 'Workspace' }).click();

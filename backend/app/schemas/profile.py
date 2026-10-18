@@ -132,3 +132,16 @@ class ProfileResponse(BaseModel):
     certifications: List[CertificationResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class GitHubExtractRequest(BaseModel):
+    github_url: str
+
+
+class GitHubExtractResponse(BaseModel):
+    title: str
+    role: Optional[str] = "Creator / Maintainer"
+    description: Optional[str] = None
+    technologies: List[str] = []
+    bullets: List[str] = []
+    url: str

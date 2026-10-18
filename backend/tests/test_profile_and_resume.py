@@ -242,3 +242,22 @@ def test_profile_and_resume_user_isolation(client):
     # User 2's resume list must not show User 1's resume
     u2_resumes = client.get("/api/v1/resumes", headers=h2).json()
     assert len(u2_resumes) == 0
+
+
+def test_extract_github_project(client):
+    """Test extracting project details from a GitHub URL."""
+    token = get_auth_token(client, "github_test@test.local")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.post(
+        "/api/v1/profile/projects/extract-github",
+        headers=headers,
+        json={"github_url": "https://github.com/torvalds/linux"},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "title" in data
+    assert "url" in data
+    assert "bullets" in data
+    assert isinstance(data["bullets"], list)
+

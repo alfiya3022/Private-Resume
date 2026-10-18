@@ -41,6 +41,13 @@ export const profileApi = {
     });
   },
 
+  async extractGitHubProject(github_url) {
+    return api.request('/profile/projects/extract-github', {
+      method: 'POST',
+      body: JSON.stringify({ github_url }),
+    });
+  },
+
   // Experiences
   async addExperience(expData) {
     return api.request('/profile/experiences', {
