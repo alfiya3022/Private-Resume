@@ -7,12 +7,10 @@ class ResumeArtifact(Base):
     __tablename__ = "resume_artifacts"
 
     id = Column(Integer, primary_key=True, index=True)
-    tailored_resume_id = Column(
-        Integer, ForeignKey("tailored_resumes.id", ondelete="CASCADE"), index=True, nullable=False
-    )
+    tailored_resume_id = Column(Integer, ForeignKey("tailored_resumes.id", ondelete="CASCADE"), index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
 
-    artifact_type = Column(String(50), nullable=False)  # "pdf" | "tex"
+    artifact_type = Column(String(20), nullable=False)  # "pdf", "tex", "zip"
     file_path = Column(String(500), nullable=False)
     file_size = Column(Integer, nullable=True)
     compilation_log = Column(Text, nullable=True)

@@ -12,14 +12,13 @@ class ResumeArtifactResponse(BaseModel):
     file_size: Optional[int] = None
     compilation_log: Optional[str] = None
     created_at: datetime
+    download_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class GeneratePdfResponse(BaseModel):
-    pdf_artifact_id: int
-    tex_artifact_id: int
-    pdf_download_url: str
-    tex_download_url: str
-    success: bool
-    compilation_log: Optional[str] = None
+    status: str
+    message: str
+    pdf_artifact: ResumeArtifactResponse
+    tex_artifact: Optional[ResumeArtifactResponse] = None
