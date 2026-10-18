@@ -14,6 +14,7 @@ from app.models.match import MatchAnalysis
 from app.models.tailored_resume import TailoredResume
 from app.models.artifact import ResumeArtifact
 from app.models.validation import ResumeValidation
+from app.models.application import Application
 
 __all__ = [
     "User",
@@ -30,4 +31,6 @@ __all__ = [
     "TailoredResume",
     "ResumeArtifact",
     "ResumeValidation",
+    "Application",
 ]
+
