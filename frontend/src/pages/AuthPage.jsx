@@ -49,7 +49,7 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
               Authenticated Session
             </h2>
             <p className="text-xs text-charcoal-muted">
-              Your candidate data is isolated and protected under your local session.
+              Candidate session active.
             </p>
           </div>
 
@@ -97,7 +97,7 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
             {isRegister ? 'Create Your Account' : 'Welcome to PrivateResume'}
           </h2>
           <p className="text-xs text-charcoal-muted">
-            All candidate resumes and Ollama inference remain strictly local to your machine.
+            {isRegister ? 'Enter your details to create an account.' : 'Sign in to access your resumes and applications.'}
           </p>
         </div>
 
@@ -123,7 +123,7 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Jane Doe"
+                placeholder="e.g. John Doe"
                 className="w-full border-2 border-charcoal p-2.5 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-coral"
               />
             </div>
@@ -137,7 +137,7 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="candidate@privateresume.local"
+              placeholder="xyz@gmail.com"
               className="w-full border-2 border-charcoal p-2.5 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-coral"
               required
             />
@@ -151,7 +151,7 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••"
+              placeholder="Enter your password"
               className="w-full border-2 border-charcoal p-2.5 text-sm font-sans focus:outline-none focus:ring-2 focus:ring-coral"
               required
               minLength={8}

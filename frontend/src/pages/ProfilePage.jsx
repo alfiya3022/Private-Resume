@@ -143,7 +143,7 @@ export default function ProfilePage({ currentUser }) {
       const result = await profileApi.uploadResume(file);
       setFeedbackMsg({
         type: 'success',
-        text: `Parsed "${result.filename}" with PyMuPDF. ${result.extracted_skills.length} skills added to profile!`,
+        text: `Parsed "${result.filename}". ${result.extracted_skills.length} skills added to profile!`,
       });
       await loadProfileAndResumes();
     } catch (err) {
@@ -194,10 +194,10 @@ export default function ProfilePage({ currentUser }) {
           <div>
             <h2 className="text-xl font-bold tracking-tight text-charcoal flex items-center space-x-2">
               <FileCheck className="w-5 h-5 text-coral" />
-              <span>Master Resume PDF Parser (PyMuPDF)</span>
+              <span>Master Resume PDF</span>
             </h2>
             <p className="text-xs text-charcoal-muted mt-1">
-              Upload your existing PDF resume. Text and skills are extracted locally without sending data to external APIs.
+              Upload your existing PDF resume
             </p>
           </div>
 
@@ -262,10 +262,10 @@ export default function ProfilePage({ currentUser }) {
       <div className="card-brutal space-y-6">
         <div className="border-b border-cream-border pb-4">
           <h2 className="text-xl font-bold tracking-tight text-charcoal">
-            Candidate Evidence & Source of Truth
+            Candidate Profile
           </h2>
           <p className="text-sm text-charcoal-muted mt-1">
-            Structured candidate source of truth. All tailored resumes draw evidence from this profile without inventing qualifications.
+            Manage your structured experience, projects, and skills.
           </p>
         </div>
 

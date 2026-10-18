@@ -82,6 +82,9 @@ export default function WorkspacePage({ currentUser }) {
   const [matching, setMatching] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [validationPopup, setValidationPopup] = useState(null);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [appLogged, setAppLogged] = useState(false);
 
   // Job form state
   const [jobForm, setJobForm] = useState({
@@ -210,6 +213,10 @@ export default function WorkspacePage({ currentUser }) {
       const report = await validationApi.validateResume(activeTailoredResume.id);
       setValidationReport(report);
       setSuccessMsg(`ATS Pre-Flight Audit completed: ${report.overall_status} (${report.score}/100)`);
+      setValidationPopup({
+        title: 'ATS Audit Passed',
+        message: `ATS Pre-Flight Audit score: ${report.score}/100 (${report.overall_status}).`,
+      });
     } catch (err) {
       setErrorMsg(err.message || 'Validation failed. Compile PDF first.');
     } finally {
@@ -225,6 +232,10 @@ export default function WorkspacePage({ currentUser }) {
       const res = await artifactsApi.generatePdf(activeTailoredResume.id);
       setPdfArtifact(res.pdf_artifact);
       setPdfRefreshKey((k) => k + 1);
+      setValidationPopup({
+        title: 'PDF Compiled',
+        message: 'Resume PDF compiled successfully with LaTeX. Ready for download or pre-flight audit.',
+      });
       try {
         const report = await validationApi.validateResume(activeTailoredResume.id);
         setValidationReport(report);
@@ -250,7 +261,12 @@ export default function WorkspacePage({ currentUser }) {
         status: 'applied',
         notes: `Submitted application with Tailored v${activeTailoredResume.version_number}. Verified ATS compliance.`,
       });
+      setAppLogged(true);
       setSuccessMsg(`Application for ${activeJob.company} logged successfully! View in Applications pipeline.`);
+      setValidationPopup({
+        title: 'Application Logged',
+        message: `Application for ${activeJob.company} (${activeJob.title}) has been logged in your Applications pipeline.`,
+      });
     } catch (err) {
       setErrorMsg(err.message || 'Failed to log application.');
     } finally {
@@ -302,10 +318,20 @@ export default function WorkspacePage({ currentUser }) {
         setEditableContent(JSON.parse(JSON.stringify(saved.content || {})));
         setTargetRoleInput(saved.target_role || '');
         setSuccessMsg(`New immutable version v${saved.version_number} created.`);
+        setValidationPopup({
+          title: 'New Version Created',
+          message: `Created immutable tailored resume version v${saved.version_number}.`,
+        });
       } else {
         setTailoredResumes((prev) => prev.map((r) => (r.id === saved.id ? saved : r)));
         setActiveTailoredResume(saved);
+        setDraftSaved(true);
+        setTimeout(() => setDraftSaved(false), 3000);
         setSuccessMsg(`Draft v${saved.version_number} saved.`);
+        setValidationPopup({
+          title: 'Draft Saved',
+          message: `Draft v${saved.version_number} saved successfully.`,
+        });
       }
     } catch (err) {
       setErrorMsg(err.message || 'Failed to save resume.');
@@ -323,6 +349,10 @@ export default function WorkspacePage({ currentUser }) {
       setTailoredResumes((prev) => prev.map((r) => (r.id === finalized.id ? finalized : r)));
       setActiveTailoredResume(finalized);
       setSuccessMsg(`Version v${finalized.version_number} approved and locked as FINAL.`);
+      setValidationPopup({
+        title: 'Version Finalized',
+        message: `Version v${finalized.version_number} is locked as FINAL. No further edits can be made to this immutable version.`,
+      });
     } catch (err) {
       setErrorMsg(err.message || 'Failed to finalize resume.');
     } finally {
@@ -402,6 +432,10 @@ export default function WorkspacePage({ currentUser }) {
       const data = await jobsApi.matchJob(activeJob.id);
       setMatchData(data);
       setSuccessMsg(`Evidence alignment complete: ${data.estimated_match_score}% Estimated Job Match.`);
+      setValidationPopup({
+        title: 'Evidence Matched',
+        message: `Calculated alignment: ${data.estimated_match_score}% match with ${data.matched_skills?.length || 0} matched skills.`,
+      });
     } catch (err) {
       setErrorMsg(err.message || 'Evidence matching failed.');
     } finally {
@@ -426,6 +460,10 @@ export default function WorkspacePage({ currentUser }) {
       setActiveJob(created);
       setSavedJobs([created, ...savedJobs]);
       setSuccessMsg(`Target job "${created.title} at ${created.company}" saved successfully.`);
+      setValidationPopup({
+        title: 'Job Saved & Analyzed',
+        message: `Target job "${created.title} at ${created.company}" saved. Requirements extracted.`,
+      });
       
       // Trigger analysis immediately
       setAnalyzing(true);
@@ -522,7 +560,7 @@ export default function WorkspacePage({ currentUser }) {
                   Stage 1: Job Description & Master Resume Intake
                 </h2>
                 <p className="text-sm text-charcoal-muted mt-1">
-                  Connect your verified candidate evidence with a target job description. The engine extracts requirements without hallucinating claims.
+                  Add a target job description to match against your master resume.
                 </p>
               </div>
               {savedJobs.length > 0 && (
@@ -617,7 +655,6 @@ export default function WorkspacePage({ currentUser }) {
                     <Briefcase className="w-4 h-4 text-coral" />
                     <span>Target Opportunity Details</span>
                   </h3>
-                  <span className="badge-tag bg-cream-muted text-charcoal">Epic 3</span>
                 </div>
 
                 <form onSubmit={handleSubmitJob} className="space-y-4">
@@ -630,7 +667,7 @@ export default function WorkspacePage({ currentUser }) {
                         type="text"
                         value={jobForm.company}
                         onChange={(e) => setJobForm({ ...jobForm, company: e.target.value })}
-                        placeholder="e.g. Stripe, OpenAI, Microsoft"
+                        placeholder="e.g. Stripe"
                         className="w-full border-2 border-charcoal p-2 text-sm"
                         required
                       />
@@ -643,7 +680,7 @@ export default function WorkspacePage({ currentUser }) {
                         type="text"
                         value={jobForm.title}
                         onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
-                        placeholder="e.g. Senior Software Engineer"
+                        placeholder="e.g. Software Engineer"
                         className="w-full border-2 border-charcoal p-2 text-sm"
                         required
                       />
@@ -659,7 +696,7 @@ export default function WorkspacePage({ currentUser }) {
                         type="text"
                         value={jobForm.location}
                         onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
-                        placeholder="e.g. San Francisco or Remote"
+                        placeholder="e.g. San Francisco, CA"
                         className="w-full border-2 border-charcoal p-2 text-sm"
                       />
                     </div>
@@ -671,7 +708,7 @@ export default function WorkspacePage({ currentUser }) {
                         type="text"
                         value={jobForm.salary}
                         onChange={(e) => setJobForm({ ...jobForm, salary: e.target.value })}
-                        placeholder="e.g. $140k - $170k"
+                        placeholder="e.g. $140,000"
                         className="w-full border-2 border-charcoal p-2 text-sm"
                       />
                     </div>
@@ -683,7 +720,7 @@ export default function WorkspacePage({ currentUser }) {
                         type="url"
                         value={jobForm.job_url}
                         onChange={(e) => setJobForm({ ...jobForm, job_url: e.target.value })}
-                        placeholder="https://company.com/jobs/..."
+                        placeholder="https://company.com/jobs/123"
                         className="w-full border-2 border-charcoal p-2 text-sm"
                       />
                     </div>
@@ -697,22 +734,33 @@ export default function WorkspacePage({ currentUser }) {
                       rows={8}
                       value={jobForm.raw_jd_text}
                       onChange={(e) => setJobForm({ ...jobForm, raw_jd_text: e.target.value })}
-                      placeholder="Paste full job description text here (Responsibilities, Required Skills, Preferred Qualifications, Technology Stack)..."
+                      placeholder="Paste the target job description here..."
                       className="w-full border-2 border-charcoal p-3 text-xs font-mono bg-cream focus:outline-none focus:ring-2 focus:ring-coral"
                       required
                     />
                   </div>
 
                   <div className="flex justify-end pt-2">
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="btn-primary flex items-center space-x-2"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span>{submitting ? 'Saving Job...' : 'Save & Analyze Job Description'}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
+                    {activeJob && jobForm.company === activeJob.company && jobForm.title === activeJob.title ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="btn-secondary opacity-80 cursor-default flex items-center space-x-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Job Saved & Analyzed</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="btn-primary flex items-center space-x-2"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>{submitting ? 'Saving Job...' : 'Save & Analyze Job Description'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -743,8 +791,22 @@ export default function WorkspacePage({ currentUser }) {
                 disabled={analyzing}
                 className="btn-secondary text-xs flex items-center space-x-1"
               >
-                <Sparkles className="w-3.5 h-3.5 text-coral" />
-                <span>{analyzing ? 'Extracting...' : 'Re-analyze JD'}</span>
+                {analyzing ? (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-coral animate-spin" />
+                    <span>Extracting...</span>
+                  </>
+                ) : analysis ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Analysis Complete</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-coral" />
+                    <span>Analyze JD</span>
+                  </>
+                )}
               </button>
               <button
                 onClick={() => setCurrentStep(3)}
@@ -978,8 +1040,22 @@ export default function WorkspacePage({ currentUser }) {
                 disabled={matching}
                 className="btn-secondary text-xs flex items-center space-x-1"
               >
-                <Sparkles className="w-3.5 h-3.5 text-coral" />
-                <span>{matching ? 'Calculating...' : 'Re-run Match'}</span>
+                {matching ? (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-coral animate-spin" />
+                    <span>Calculating...</span>
+                  </>
+                ) : matchData ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Evidence Matched ({matchData.estimated_match_score}%)</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-coral" />
+                    <span>Run Match Alignment</span>
+                  </>
+                )}
               </button>
               <button
                 onClick={() => setCurrentStep(4)}
@@ -1243,16 +1319,27 @@ export default function WorkspacePage({ currentUser }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => handleSaveResume(false)}
-                    disabled={tailorSaving || activeTailoredResume.status === 'final'}
-                    className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3"
+                    disabled={tailorSaving || activeTailoredResume.status === 'final' || draftSaved}
+                    className={`btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 ${
+                      draftSaved ? 'border-emerald-600 text-emerald-800 bg-emerald-50' : ''
+                    }`}
                     title={
                       activeTailoredResume.status === 'final'
                         ? 'Final versions are immutable. Use Save as New Version.'
                         : 'Save draft in-place'
                     }
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save Working Draft</span>
+                    {draftSaved ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Draft Saved</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save Working Draft</span>
+                      </>
+                    )}
                   </button>
 
                   <button
@@ -1695,12 +1782,16 @@ export default function WorkspacePage({ currentUser }) {
                     <>
                       <button
                         onClick={handleLogApplication}
-                        disabled={loggingApp}
-                        className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg text-emerald-800 border-emerald-600"
+                        disabled={loggingApp || appLogged}
+                        className={`btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white ${
+                          appLogged
+                            ? 'opacity-60 cursor-not-allowed text-emerald-900 border-emerald-500'
+                            : 'hover:bg-cream-bg text-emerald-800 border-emerald-600'
+                        }`}
                         title="Record this submitted version in your Application Pipeline"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{loggingApp ? 'Logging...' : 'Log Application'}</span>
+                        <span>{loggingApp ? 'Logging...' : (appLogged ? 'Application Logged' : 'Log Application')}</span>
                       </button>
 
                       <a
@@ -1778,10 +1869,15 @@ export default function WorkspacePage({ currentUser }) {
                           <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-charcoal border-t-transparent" />
                           <span>Auditing ATS Health...</span>
                         </>
+                      ) : validationReport ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Audit Completed</span>
+                        </>
                       ) : (
                         <>
                           <RefreshCw className="w-3.5 h-3.5 text-charcoal-muted" />
-                          <span>{validationReport ? 'Re-Run ATS Audit' : 'Run ATS Audit'}</span>
+                          <span>Run ATS Audit</span>
                         </>
                       )}
                     </button>
@@ -2021,6 +2117,29 @@ export default function WorkspacePage({ currentUser }) {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Validation Pop-up Modal */}
+      {validationPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/50 p-4">
+          <div className="bg-white border-2 border-charcoal p-6 shadow-brutal max-w-sm w-full space-y-4 font-sans">
+            <div className="flex items-center space-x-2.5 text-emerald-600">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <h3 className="font-bold text-base text-charcoal">{validationPopup.title}</h3>
+            </div>
+            <p className="text-xs text-charcoal-muted leading-relaxed font-mono">
+              {validationPopup.message}
+            </p>
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setValidationPopup(null)}
+                className="btn-primary w-full py-2 text-xs"
+              >
+                Continue
+              </button>
+            </div>
           </div>
         </div>
       )}
