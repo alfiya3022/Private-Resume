@@ -26,10 +26,13 @@ import {
   Edit3,
   RefreshCw,
   X,
+  Download,
+  ExternalLink,
 } from 'lucide-react';
 import { jobsApi } from '../api/jobs';
 import { profileApi } from '../api/profile';
 import { tailoringApi } from '../api/tailoring';
+import { artifactsApi } from '../api/artifacts';
 
 export default function WorkspacePage({ currentUser }) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -59,6 +62,11 @@ export default function WorkspacePage({ currentUser }) {
     instruction: '',
     loading: false,
   });
+
+  // Stage 5 PDF state
+  const [pdfArtifact, setPdfArtifact] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfRefreshKey, setPdfRefreshKey] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -147,13 +155,42 @@ export default function WorkspacePage({ currentUser }) {
         setActiveTailoredResume(latest);
         setEditableContent(JSON.parse(JSON.stringify(latest.content || {})));
         setTargetRoleInput(latest.target_role || '');
+        loadPdfArtifact(latest.id);
       } else {
         setActiveTailoredResume(null);
         setEditableContent(null);
         setTargetRoleInput('');
+        setPdfArtifact(null);
       }
     } catch (err) {
       setTailoredResumes([]);
+    }
+  };
+
+  const loadPdfArtifact = async (resumeId) => {
+    if (!resumeId) return;
+    try {
+      const artifacts = await artifactsApi.getArtifacts(resumeId);
+      const pdf = artifacts.find((a) => a.artifact_type === 'pdf');
+      setPdfArtifact(pdf || null);
+    } catch {
+      setPdfArtifact(null);
+    }
+  };
+
+  const handleGeneratePdf = async () => {
+    if (!activeTailoredResume) return;
+    setPdfLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await artifactsApi.generatePdf(activeTailoredResume.id);
+      setPdfArtifact(res.pdf_artifact);
+      setPdfRefreshKey((k) => k + 1);
+      setSuccessMsg('Resume compiled into ATS-ready PDF successfully.');
+    } catch (err) {
+      setErrorMsg(err.message || 'LaTeX compilation failed.');
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -163,6 +200,7 @@ export default function WorkspacePage({ currentUser }) {
       setActiveTailoredResume(selected);
       setEditableContent(JSON.parse(JSON.stringify(selected.content || {})));
       setTargetRoleInput(selected.target_role || '');
+      loadPdfArtifact(selected.id);
     }
   };
 
@@ -1024,9 +1062,9 @@ export default function WorkspacePage({ currentUser }) {
                     </h3>
                     <span className="badge-tag bg-rose-50 text-rose-900 border-rose-600">Gaps</span>
                   </div>
-                  <div className="p-2.5 bg-rose-50 border border-rose-300 text-[11px] text-rose-900 font-mono">
-                    <strong>Rule:</strong> Missing skills are honest gaps for this role, NOT an instruction to invent experience.
-                  </div>
+                  <p className="text-xs text-charcoal-muted">
+                    Missing job requirements excluded from resume generation:
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {matchData.missing_skills?.map((sk, i) => (
                       <span key={i} className="badge-tag bg-rose-50 text-rose-950 border-rose-400">
@@ -1087,13 +1125,8 @@ export default function WorkspacePage({ currentUser }) {
                 Stage 4: Tailored Resume Generation
               </h2>
               <p className="text-xs text-charcoal-muted max-w-lg mx-auto">
-                Generate an evidence-grounded resume draft specifically tailored for{' '}
-                <strong>{activeJob?.title}</strong> at <strong>{activeJob?.company}</strong>.
+                Generate an evidence-grounded resume draft aligned with <strong>{activeJob?.title}</strong> at <strong>{activeJob?.company}</strong>.
               </p>
-              <div className="p-3 bg-amber-50 border-2 border-amber-300 max-w-lg mx-auto text-[11px] text-amber-950 text-left">
-                <strong>Constitutional Rule:</strong> The generator only utilizes verified candidate profile evidence.
-                Missing skills identified during Stage 3 matching are <em>never</em> fabricated.
-              </div>
               <div className="pt-2">
                 <button
                   onClick={handleTriggerTailor}
@@ -1180,15 +1213,13 @@ export default function WorkspacePage({ currentUser }) {
                 </div>
               </div>
 
-              {/* Anti-fabrication reminder */}
-              <div className="p-3 bg-amber-50 border-2 border-charcoal text-xs text-amber-950 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0" />
-                  <span>
-                    <strong>Human Oversight Required:</strong> AI recommends; candidate reviews and approves.
-                    Unsupported claims or missing skills will never be automatically added.
-                  </span>
-                </div>
+              {/* Status & Integrity Notice */}
+              <div className="px-3 py-2 bg-cream-bg border border-charcoal text-xs text-charcoal-muted flex items-center justify-between">
+                <span className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Evidence-grounded • Zero fabrication • Candidate approved</span>
+                </span>
+                <span className="text-[11px] font-mono">Stage 4 of 5</span>
               </div>
 
               {/* Resume Content Sections */}
@@ -1548,22 +1579,148 @@ export default function WorkspacePage({ currentUser }) {
         </div>
       )}
 
-      {/* Stage 5: Final Resume & LaTeX Compilation placeholder */}
+      {/* Stage 5: Final Resume & LaTeX Compilation */}
       {currentStep === 5 && (
-        <div className="card-brutal text-center py-12 space-y-4 font-mono">
-          <div className="w-12 h-12 rounded-full border-2 border-charcoal bg-white flex items-center justify-center mx-auto text-charcoal">
-            <FileCode className="w-6 h-6 text-coral" />
-          </div>
-          <h2 className="text-base font-bold uppercase tracking-wider text-charcoal">
-            Stage 5: Final Resume & LaTeX Compilation
-          </h2>
-          <p className="text-xs text-charcoal-muted max-w-lg mx-auto">
-            Upcoming Epic 7 & 8: Structured content injection into LaTeX template, compilation to ATS-ready PDF,
-            and objective multi-point resume validation.
-          </p>
-          <button onClick={() => setCurrentStep(4)} className="btn-secondary text-xs mt-2">
-            ← Return to Stage 4: Resume Tailoring
-          </button>
+        <div className="space-y-6 font-mono">
+          {!activeTailoredResume ? (
+            <div className="card-brutal text-center py-12 space-y-4">
+              <p className="text-xs text-charcoal-muted">No tailored resume selected. Please generate a tailored draft in Stage 4 first.</p>
+              <button onClick={() => setCurrentStep(4)} className="btn-secondary text-xs">
+                ← Return to Stage 4: Tailor Resume
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Stage 5 Top Control Bar */}
+              <div className="card-brutal bg-white p-4 flex flex-wrap items-center justify-between gap-4 border-2 border-charcoal shadow-brutal-sm">
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs font-bold uppercase text-charcoal tracking-wider">
+                    Target: {activeJob?.title} (v{activeTailoredResume.version_number})
+                  </span>
+                  <span
+                    className={`badge-tag ${
+                      activeTailoredResume.status === 'final'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-600'
+                        : 'bg-amber-50 text-amber-900 border-amber-600'
+                    }`}
+                  >
+                    {activeTailoredResume.status.toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleGeneratePdf}
+                    disabled={pdfLoading}
+                    className="btn-primary text-xs flex items-center space-x-1.5 py-1.5 px-3"
+                  >
+                    {pdfLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                        <span>Compiling LaTeX...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>{pdfArtifact ? 'Re-compile PDF' : 'Compile ATS PDF'}</span>
+                      </>
+                    )}
+                  </button>
+
+                  {pdfArtifact && (
+                    <>
+                      <a
+                        href={artifactsApi.getPdfUrl(activeTailoredResume.id)}
+                        download={`Resume_${activeJob?.company || 'Tailored'}.pdf`}
+                        className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg"
+                      >
+                        <Download className="w-3.5 h-3.5 text-coral" />
+                        <span>Download PDF</span>
+                      </a>
+
+                      <a
+                        href={artifactsApi.getTexUrl(activeTailoredResume.id)}
+                        download={`resume_source.tex`}
+                        className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg"
+                      >
+                        <FileCode className="w-3.5 h-3.5 text-charcoal-muted" />
+                        <span>LaTeX Source</span>
+                      </a>
+
+                      <a
+                        href={artifactsApi.getPdfUrl(activeTailoredResume.id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg"
+                        title="Open in new browser tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-charcoal-muted" />
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Main PDF Preview Window */}
+              {pdfArtifact ? (
+                <div className="card-brutal bg-white p-2 border-2 border-charcoal shadow-brutal space-y-2">
+                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-cream-border text-[11px] text-charcoal-muted">
+                    <span className="flex items-center space-x-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="font-bold text-charcoal">ATS Document Preview (Compiled via MiKTeX pdfTeX)</span>
+                    </span>
+                    <span>File Size: {Math.round((pdfArtifact.file_size || 0) / 1024)} KB</span>
+                  </div>
+
+                  <iframe
+                    key={pdfRefreshKey}
+                    src={`${artifactsApi.getPdfUrl(activeTailoredResume.id)}?t=${pdfRefreshKey}`}
+                    className="w-full h-[780px] border border-charcoal bg-white"
+                    title="Compiled PDF Preview"
+                  />
+                </div>
+              ) : (
+                <div className="card-brutal text-center py-16 space-y-4 bg-white border-2 border-charcoal">
+                  <div className="w-12 h-12 rounded-full border-2 border-charcoal bg-cream-bg flex items-center justify-center mx-auto text-charcoal">
+                    <FileCode className="w-6 h-6 text-coral" />
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-charcoal">
+                    ATS Resume Not Yet Compiled
+                  </h3>
+                  <p className="text-xs text-charcoal-muted max-w-md mx-auto">
+                    Click compile below to transform your tailored resume into a high-density, ATS-parsable PDF document.
+                  </p>
+                  <button
+                    onClick={handleGeneratePdf}
+                    disabled={pdfLoading}
+                    className="btn-primary inline-flex items-center space-x-2 text-xs py-2 px-4"
+                  >
+                    {pdfLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                        <span>Compiling LaTeX...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Compile ATS-Ready PDF</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Navigation CTAs */}
+              <div className="flex justify-between items-center pt-4 border-t border-cream-border">
+                <button onClick={() => setCurrentStep(4)} className="btn-secondary text-xs">
+                  ← Back to Stage 4: Resume Tailoring
+                </button>
+                <div className="text-xs text-charcoal-muted font-mono">
+                  Stage 5: Final Resume Ready
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

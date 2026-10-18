@@ -12,6 +12,7 @@ from app.models.job import Job
 from app.models.analysis import JobRequirement
 from app.models.match import MatchAnalysis
 from app.models.tailored_resume import TailoredResume
+from app.models.artifact import ResumeArtifact
 
 __all__ = [
     "User",
@@ -26,4 +27,5 @@ __all__ = [
     "JobRequirement",
     "MatchAnalysis",
     "TailoredResume",
+    "ResumeArtifact",
 ]
