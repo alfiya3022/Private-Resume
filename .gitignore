@@ -69,3 +69,11 @@ artifacts/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Scratch and test files
+data/
+test_*.tex
+test_*.pdf
+test_*.log
+test_*.aux
+\$testDir/
