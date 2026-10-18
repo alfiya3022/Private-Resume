@@ -16,8 +16,10 @@ from app.schemas.tailored_resume import (
     AskAIResponse,
 )
 from app.schemas.artifact import GeneratePdfResponse, ResumeArtifactResponse
+from app.schemas.validation import ResumeValidationResponse
 from app.services.tailoring_service import tailoring_service
 from app.services.latex_service import latex_service
+from app.services.validation_service import validation_service
 
 router = APIRouter()
 
@@ -145,3 +147,23 @@ def download_tex_source(
         media_type="text/plain",
         filename=Path(artifact.file_path).name,
     )
+
+
+@router.post("/{resume_id}/validate", response_model=ResumeValidationResponse)
+def validate_tailored_resume(
+    resume_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Run automated multi-point ATS pre-flight validation on the compiled PDF."""
+    return validation_service.validate_resume(db, current_user, resume_id)
+
+
+@router.get("/{resume_id}/validation", response_model=ResumeValidationResponse)
+def get_resume_validation(
+    resume_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieve existing validation diagnostics for target resume version."""
+    return validation_service.get_validation(db, current_user, resume_id)
