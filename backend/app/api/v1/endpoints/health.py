@@ -10,13 +10,7 @@ router = APIRouter()
 @router.get("/health", status_code=status.HTTP_200_OK)
 async def health_check():
     """Health check endpoint verifying core subsystem statuses."""
-    import traceback
-    db_connected = False
-    db_error = None
-    try:
-        db_connected = check_db_connection()
-    except Exception as e:
-        db_error = str(e)
+    db_connected = check_db_connection()
 
     
     # Check Ollama connectivity

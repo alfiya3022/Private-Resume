@@ -18,7 +18,7 @@ Epic 11 - Final Polish, Documentation & Docker Packaging Complete. All Project E
 - **Epic 11 — Final Polish, Documentation & Packaging**: Production multi-container Docker Compose configuration, idempotent database seed utility (`backend/seed.py`), sleek clutter-free neo-brutalist UI polish, and comprehensive production README documentation.
 
 ## Completion standard
-- 48 automated Pytest tests passing (100% pass rate).
+- 49 automated Pytest tests passing (100% pass rate, including automated GitHub repository extraction service tests).
 - 2 Playwright E2E browser journeys passing (100% pass rate).
 - QA Test Workbooks fully updated with actual execution records:
   - `docs/PrivateResume_Automation_Test_Cases.xlsx` (53 automated tests logged)

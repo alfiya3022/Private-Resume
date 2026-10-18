@@ -35,6 +35,17 @@ class ProjectCreate(ProjectBase):
     pass
 
 
+class ProjectUpdate(BaseModel):
+    title: Optional[str] = None
+    role: Optional[str] = None
+    description: Optional[str] = None
+    bullets: Optional[List[str]] = None
+    technologies: Optional[List[str]] = None
+    url: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
 class ProjectResponse(ProjectBase):
     id: int
     profile_id: int
@@ -55,6 +66,17 @@ class ExperienceBase(BaseModel):
 
 class ExperienceCreate(ExperienceBase):
     pass
+
+
+class ExperienceUpdate(BaseModel):
+    company: Optional[str] = None
+    title: Optional[str] = None
+    location: Optional[str] = None
+    description: Optional[str] = None
+    bullets: Optional[List[str]] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    is_current: Optional[bool] = None
 
 
 class ExperienceResponse(ExperienceBase):
