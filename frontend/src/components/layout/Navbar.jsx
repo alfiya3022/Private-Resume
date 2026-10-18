@@ -1,75 +1,69 @@
 import React from 'react';
-import { FileText, Briefcase, User, CheckCircle2, Shield } from 'lucide-react';
+import { Briefcase, User, CheckCircle2, Shield } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab, healthData, currentUser }) {
+export default function Navbar({ activeTab, setActiveTab, currentUser }) {
   const navItems = [
     { id: 'workspace', label: 'Workspace', icon: Briefcase },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'applications', label: 'Applications', icon: CheckCircle2 },
-    { id: 'auth', label: currentUser ? (currentUser.full_name || currentUser.email.split('@')[0]) : 'Auth', icon: Shield },
   ];
 
   return (
     <header className="border-b-2 border-charcoal bg-white sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo & Product Brand */}
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 bg-charcoal text-white flex items-center justify-center font-bold text-lg shadow-brutal-sm">
-              PR
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-bold text-lg tracking-tight text-charcoal">
-                  PrivateResume
-                </span>
-                <span className="badge-tag bg-coral-light text-coral border-coral">
-                  Local-First V1
-                </span>
+          {/* Left: Brand Logo & Navigation Tabs */}
+          <div className="flex items-center space-x-4 sm:space-x-8">
+            <div
+              onClick={() => setActiveTab('workspace')}
+              className="flex items-center space-x-2.5 cursor-pointer select-none"
+            >
+              <div className="w-8 h-8 bg-charcoal text-white flex items-center justify-center font-bold text-base shadow-brutal-sm">
+                PR
               </div>
-              <p className="text-xs text-charcoal-muted hidden sm:block">
-                AI recommends · Candidate approves · System compiles
-              </p>
+              <span className="font-bold text-lg tracking-tight text-charcoal">
+                PrivateResume
+              </span>
             </div>
+
+            {/* Navigation Tabs aligned to the left */}
+            <nav className="flex space-x-1 sm:space-x-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`flex items-center space-x-2 px-3 py-1.5 text-xs sm:text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-charcoal text-white shadow-brutal-sm'
+                        : 'text-charcoal hover:bg-cream-muted border border-transparent'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
           </div>
 
-          {/* Navigation Links (Four Locked Areas) */}
-          <nav className="flex space-x-1 sm:space-x-2">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-charcoal text-white shadow-brutal-sm'
-                      : 'text-charcoal hover:bg-cream-muted border border-transparent'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Subsystem Health Indicator */}
-          <div className="hidden lg:flex items-center space-x-2 text-xs font-mono">
-            <span
-              title={`Database: ${healthData?.subsystems?.database || 'checking'}`}
-              className={`inline-block w-2.5 h-2.5 rounded-full ${
-                healthData?.subsystems?.database === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'
+          {/* Right: Auth / Candidate Session */}
+          <div className="flex items-center">
+            <button
+              onClick={() => setActiveTab('auth')}
+              className={`flex items-center space-x-2 px-3 py-1.5 text-xs sm:text-sm font-medium transition-all border ${
+                activeTab === 'auth'
+                  ? 'bg-charcoal text-white border-charcoal shadow-brutal-sm'
+                  : 'bg-white text-charcoal border-charcoal hover:bg-cream-muted'
               }`}
-            />
-            <span className="text-charcoal-muted">
-              {healthData?.subsystems?.ollama === 'connected' ? 'Ollama Ready' : 'Ollama Local'}
-            </span>
-            <span className="text-cream-border">|</span>
-            <span className="text-charcoal-muted">
-              {healthData?.subsystems?.latex === 'available' ? 'LaTeX Ready' : 'LaTeX Standby'}
-            </span>
+            >
+              <Shield className="w-3.5 h-3.5 text-coral" />
+              <span>
+                {currentUser ? (currentUser.full_name || currentUser.email.split('@')[0]) : 'Sign In'}
+              </span>
+            </button>
           </div>
         </div>
       </div>
