@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ApplicationCreate(BaseModel):
@@ -16,27 +16,27 @@ class ApplicationUpdate(BaseModel):
 
 
 class JobSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     company: str
     title: str
     location: Optional[str] = None
     status: str
 
-    class Config:
-        from_attributes = True
-
 
 class TailoredResumeSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     version_number: int
     status: str
     target_role: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
 
 class ApplicationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     job_id: int
@@ -50,6 +50,3 @@ class ApplicationResponse(BaseModel):
     # Associated summaries
     job: Optional[JobSummary] = None
     tailored_resume: Optional[TailoredResumeSummary] = None
-
-    class Config:
-        from_attributes = True

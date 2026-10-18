@@ -1,3 +1,4 @@
+from fastapi import APIRouter
 from app.api.v1.endpoints import health, auth, profile, resumes, jobs, tailored_resumes, applications
 
 api_router = APIRouter()
