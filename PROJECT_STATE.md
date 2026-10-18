@@ -1,7 +1,7 @@
 # PrivateResume - Current Project State
 
 ## Project phase
-Epic 6 - Tailored Resume + Human Editing Complete. Ready for Epic 7 - LaTeX + PDF Generation.
+Epic 7 - LaTeX + PDF Generation Complete. Ready for Epic 8 - Resume Validation Engine.
 
 ## Current status
 - Git repository and foundation verified (Epic 0).
@@ -10,40 +10,41 @@ Epic 6 - Tailored Resume + Human Editing Complete. Ready for Epic 7 - LaTeX + PD
 - Job management & Workspace Stage 1 intake engine verified (Epic 3).
 - Local-first JD Analysis & requirements extraction engine verified (Epic 4).
 - Resume-to-Job Matching & Evidence alignment engine verified (Epic 5).
-- Tailored Resume Generation, Versioning & Human Editing verified (Epic 6):
-  - SQLAlchemy model `TailoredResume` with relational versioning (`version_number`, `parent_version_id`, `status` ['draft', 'final'], `target_role`, and structured `content` JSON).
-  - Historical immutability strictly enforced: editing a finalized resume or explicitly requesting a new version creates an immutable new version row (`v1` -> `v2` -> `v3`). Previous drafts remain frozen.
-  - Evidence-grounded `TailoringService`: builds tailored resume drafts directly from genuine candidate profile evidence aligned with JD requirements while strictly excluding missing skills (zero hallucination).
-  - Local-first "Ask AI" section refinement: localized section rewrite prompts via `OllamaProvider` (with deterministic fallback) ensuring factual grounding in verified profile skills.
-  - REST endpoints operational:
-    - `POST /api/v1/jobs/{job_id}/tailor` (201 Created)
-    - `GET /api/v1/jobs/{job_id}/tailored-resumes` (200 OK)
-    - `GET /api/v1/tailored-resumes/{id}` (200 OK)
-    - `PUT /api/v1/tailored-resumes/{id}` (200 OK; in-place draft save or version branching)
-    - `POST /api/v1/tailored-resumes/{id}/edit` (200 OK; localized Ask AI section revision)
-    - `POST /api/v1/tailored-resumes/{id}/finalize` (200 OK; locks version as FINAL)
-  - Alembic migration `006_create_tailoring_tables.py` created.
-  - 37 total automated Pytest tests passing (100% pass rate across all modules including unit, version immutability, Ask AI, and security isolation).
-  - React Workspace Stage 4 integrated:
-    - Version dropdown switcher (`v1 (DRAFT)`, `v2 (FINAL)`), status badges.
-    - Section-by-section editors (Headline, Professional Summary, Grouped Technical Skills, Work Experience with bullet editors, Key Projects, Education, Certifications).
-    - Interactive "Ask AI" consultation modal with preset prompt directives, custom prompt input, proposed revision box, and "Accept & Apply" workflow.
-    - Anti-fabrication integrity callouts and seamless progression to Stage 5.
+- Tailored Resume Generation, Versioning & Human Editing verified (Epic 6).
+- LaTeX + PDF Generation & Document Streaming verified (Epic 7):
+  - Controlled LaTeX injection engine (`LatexService`) with rigorous character escaping (`&`, `%`, `$`, `#`, `_`, `{`, `}`, `~`, `^`, `\`) preventing macro injection or compiler breakage.
+  - Native ATS-compliant LaTeX template structure using core typography primitives, compiling in milliseconds without external network/package dependencies.
+  - Isolated subprocess compiler invoking `pdflatex -interaction=nonstopmode -no-shell-escape` within temporary workspaces.
+  - Relational `ResumeArtifact` model storing compiled PDF and TeX source files in isolated user storage (`storage/artifacts/{user_id}/`).
+  - REST endpoints operational under `/api/v1/tailored-resumes`:
+    - `POST /{resume_id}/generate-pdf`: Compiles PDF, returns artifact metadata.
+    - `GET /{resume_id}/artifacts`: Lists generated documents and file sizes.
+    - `GET /{resume_id}/pdf`: Streams binary `application/pdf` for inline preview or download.
+    - `GET /{resume_id}/tex`: Streams LaTeX source file for inspection.
+  - Alembic migration `007_create_artifact_tables.py` created and applied.
+  - 40 total automated Pytest tests passing (100% pass rate).
+  - Workspace Stage 5 UI integrated:
+    - Real-time inline PDF preview (`<iframe>`).
+    - Direct "Download PDF" and "LaTeX Source" actions.
+    - Fullscreen document viewer trigger and compilation refresh.
+  - UI content decluttered: streamlined banners and cards across Stages 3, 4, and 5 for a clean, professional aesthetic.
   - Both QA test workbooks updated with actual execution records:
-    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (39 automated tests logged across all modules)
-    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (17 manual tests logged across all modules)
+    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (43 automated tests logged across all modules)
+    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (19 manual tests logged across all modules)
 
 ## Current next step
-Epic 7 - LaTeX + PDF Generation.
+Epic 8 - Resume Validation Engine.
 Tasks:
-1. Template storage and package handling (upload custom ZIP package or use default ATS LaTeX template).
-2. Content injection engine: safely escape LaTeX special characters (`&`, `%`, `$`, `#`, `_`, `{`, `}`) and render structured tailored resume content into `.tex` files.
-3. Local LaTeX compiler runner invoking `pdflatex` within isolated scratch working directories.
-4. Endpoints:
-   - `POST /api/v1/tailored-resumes/{id}/generate-pdf`
-   - `GET /api/v1/tailored-resumes/{id}/artifacts`
-   - `GET /api/v1/tailored-resumes/{id}/preview` (PDF streaming/download)
-5. Frontend Stage 5 PDF previewer with download action and status feedback.
+1. Validation service (`app/services/validation_service.py`):
+   - Text extractability check (ensures PDF contains selectable, parsable text).
+   - Standard section heading presence (Summary, Experience, Education, Skills).
+   - Contact details detection (email, phone, name).
+   - Placeholder & template artifact check (detecting unresolved `TODO`, `[Company]`, `Lorem ipsum`).
+   - Content integrity check ensuring zero unsupported claims.
+2. Endpoints:
+   - `POST /api/v1/tailored-resumes/{id}/validate`
+   - `GET /api/v1/tailored-resumes/{id}/validation`
+3. Frontend Stage 5 Validation checklist panel with pass/warn/fail status cards.
 
 ## Locked top-level product areas
 1. Auth
