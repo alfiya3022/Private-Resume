@@ -71,6 +71,19 @@ def delete_skill(
 
 
 # Projects
+@router.post("/projects/extract-github", response_model=GitHubExtractResponse)
+async def extract_github_project(
+    request: GitHubExtractRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Extract project information, stack, and accomplishments from a GitHub repository."""
+    if not request.github_url or not request.github_url.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="GitHub URL is required"
+        )
+    return await github_service.extract_project_from_github(request.github_url)
+
+
 @router.post("/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def add_project(
     project_in: ProjectCreate,
@@ -93,19 +106,6 @@ def delete_project(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
         )
-
-
-@router.post("/projects/extract-github", response_model=GitHubExtractResponse)
-async def extract_github_project(
-    request: GitHubExtractRequest,
-    current_user: User = Depends(get_current_user),
-):
-    """Extract project information, stack, and accomplishments from a GitHub repository."""
-    if not request.github_url or not request.github_url.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="GitHub URL is required"
-        )
-    return await github_service.extract_project_from_github(request.github_url)
 
 
 # Experiences
