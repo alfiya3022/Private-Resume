@@ -1,41 +1,50 @@
 # PrivateResume - Current Project State
 
 ## Project phase
-Epic 4 - JD Analysis Complete. Ready for Epic 5 - Resume-to-Job Matching.
+Epic 14 — Compilation Hardening, Comprehensive JD Extraction, Clean Flow & Multi-Cycle Isolation Complete. All Project Epics (0 through 14) 100% Complete & Verified.
 
 ## Current status
-- Git repository and foundation verified (Epic 0).
-- User authentication, JWT tokens, and user isolation verified (Epic 1).
-- Candidate master profile & PyMuPDF resume ingestion verified (Epic 2).
-- Job management & Workspace Stage 1 intake engine verified (Epic 3).
-- Local-first JD Analysis & requirements extraction engine verified (Epic 4):
-  - AI provider abstraction `OllamaProvider` communicating with local host Ollama instance (`http://localhost:11434`) via JSON-mode structured prompting.
-  - Robust deterministic extraction fallback parser mapping JD requirements to industry taxonomy (languages, frameworks, databases, tools, cloud, soft skills, responsibilities, qualifications, and experience level).
-  - SQLAlchemy relational model `JobRequirement` storing structured requirements with foreign key to `Job.id`.
-  - Service layer `AnalysisService` implementing job requirement extraction, upsertion, and multi-tenant isolation.
-  - REST endpoints operational under `/api/v1/jobs`:
-    - `POST /jobs/{job_id}/analyze` (200 OK returning `JobAnalysisResponse`)
-    - `GET /jobs/{job_id}/analysis` (200 OK; 404 on missing or unauthorized access)
-  - Alembic migration `004_create_analysis_tables.py` created.
-  - 31 total automated Pytest tests passing (100% pass rate across unit, API contracts, negative scenarios, and security isolation tests).
-  - React Workspace Stage 2 integrated: displays categorized required vs preferred technical skills, categorized tech stack breakdown, key responsibilities, minimum qualifications, re-analyze trigger, and transition to Stage 3.
-  - Both QA test workbooks updated with actual execution records:
-    - `docs/PrivateResume_Automation_Test_Cases.xlsx` (`Auth`, `Master_Resume`, `Profile_Personal`, `Workspace_Job_Input`, `JD_Analysis`: 29 automated tests logged)
-    - `docs/PrivateResume_Manual_Test_Cases.xlsx` (`Auth`, `Master_Resume`, `Workspace_Job_Input`, `JD_Analysis`: 9 manual tests logged)
+- **Epic 0 — Foundation**: Git repo, React Vite Tailwind frontend, FastAPI modular monolith, PostgreSQL, Docker Compose, root documentation.
+- **Epic 1 — Auth & User Isolation**: Bcrypt passwords, JWT bearer tokens, user registration/login, user isolation middleware.
+- **Epic 2 — Master Profile & PDF Ingestion**: PyMuPDF extraction, candidate profile CRUD (personal, skills, experience, projects, education, certifications), file upload storage.
+- **Epic 3 — Job Intake Engine**: Job entity, status lifecycle, Workspace Stage 1 intake selector and saved job manager.
+- **Epic 4 — Structured JD Analysis**: Local Ollama extraction with deterministic fallback, categorized requirements.
+- **Epic 5 — Resume-to-Job Matching**: Deterministic 4-category classification, Estimated Job Match (0-100%), evidence citations, anti-fabrication rules.
+- **Epic 6 — Tailoring & Human Editing**: `TailoredResume` model with version immutability (`v1` $\to$ `v2` $\to$ `v3`), Ask AI section refinement under anti-fabrication constraints, Workspace Stage 4 editor.
+- **Epic 7 — LaTeX + PDF Generation**: Controlled LaTeX escaping engine, clean ATS LaTeX template, isolated subprocess compilation, `ResumeArtifact` persistence, inline document streaming.
+- **Epic 8 — Resume Validation Engine**: ATS pre-flight engine (`ValidationService`) evaluating 6 objective checks (PDF health, text extractability, contact info, headings, placeholders, evidence grounding), interactive Stage 5 Quality Gate panel.
+- **Epic 9 — Application Tracking Engine & Dashboard**: `Application` relational model, Alembic migration 009, dedicated `/applications` pipeline dashboard with status filtering and interview notes, 1-click Workspace Stage 5 logging.
+- **Epic 10 — Testing, CI Pipeline & Security Hardening**: GitHub Actions CI workflow (`.github/workflows/ci.yml`), `SecurityHeadersMiddleware` (X-Content-Type-Options, X-Frame-Options: SAMEORIGIN), Playwright E2E browser test suite.
+- **Epic 11 — Final Polish, Documentation & Packaging**: Production multi-container Docker Compose configuration, idempotent database seed utility (`backend/seed.py`), sleek clutter-free neo-brutalist UI polish, and comprehensive production README documentation.
+- **Epic 12 — User Experience Polish & Stage 4/5 Refinements**:
+  - Full inline Edit & Save CRUD for Projects and Experience in Profile tab.
+  - Native `<input type="date">` calendar selectors for all historical dates.
+  - LaTeX Template Package Manager accepting `.zip` packages only, with compiler line removed.
+  - INR currency auto-formatting (`₹ 12,00,000`) for Opportunity compensation.
+  - Anti-hallucination JD experience extraction defaulting strictly to "Not specified" if unspecified.
+  - Stage 4 Progressive Tailoring Studio with full CRUD & inline Save buttons for every line (Resume Heading, Summary, Skills categories/items, Experience roles/bullets, Projects/bullets, Education & Certifications).
+  - Stage 5 clean "5. PDF" generation tab with audit health panel removed, MiKTeX compiler banner removed, terminal/black window removed, re-compile option removed, and reliable authenticated PDF download with automatic logging into the Applications tracker.
+- **Epic 13 — Template Engine Personalization, Multi-Cycle Isolation & Clean Flow**:
+  - Candidate-provided LaTeX template engine: Automatically renders resumes using candidate's uploaded `.tex` or `.zip` template; cleanly falls back to system base template when removed.
+  - Education & Certification inline CRUD: Added full inline Edit and Save functionality to Education and Certification cards in Candidate Profile.
+  - Seamless Stage 4 to Stage 5 transition: Eliminated direct download/audit modal popups upon clicking "Proceed to Stage 5: PDF", rendering the PDF preview directly in the viewer.
+  - Clean workspace multi-cycle isolation: Downloading a PDF auto-logs the opportunity to the Applications pipeline and fully wipes active workspace draft state so prior content never spills over into subsequent applications.
+- **Epic 14 — Compilation Hardening, Comprehensive JD Extraction & UI Streamlining**:
+  - LaTeX Compilation Resilience: Resolved pdflatex process hangs by adding `-halt-on-error` and `-disable-installer` flags, and injecting self-contained shims for `hyperref` and `parskip` packages to eliminate network CTAN calls and interactive prompts.
+  - Custom Template Compatibility: Added native regex support for `\begin{rSection}` environments (FAANGpath and modern CV templates) in `_inject_into_custom_template` so custom uploaded templates receive tailored content seamlessly.
+  - UI Simplification: Completely removed the "Categorized Technical Stack" section from Stage 2 (Job Requirements Analysis) per user request.
+  - Precision JD Scraping: Vastly expanded tech taxonomy for database roles, administration, protocols, data querying, and scripting; added intelligent sentence-level required vs. preferred classification and accurate experience-year parsing.
+
+## Completion standard
+- Backend & frontend servers actively running and healthy (FastAPI on 8005, Vite on 5173).
+- 49 automated Pytest unit and integration tests passing (100% pass rate).
+- Frontend production bundle cleanly built with Vite (`npm run build`).
+- PDF compilation verified working in under 1 second without timing out.
+- JD extraction verified extracting comprehensive skillsets and accurate years.
+- All constitutional rules and architecture constraints respected (local-first, zero telemetry, non-fabrication, version immutability, modular monolith).
 
 ## Current next step
-Epic 5 - Resume-to-Job Matching.
-Tasks:
-1. Evidence matching engine (`app/services/matching_service.py`) executing primarily deterministic rules after structured extraction.
-2. Evidence classification into four mandatory categories:
-   - Matched skills
-   - Weakly represented skills
-   - Missing skills
-   - Unsupported claims (flagged to prevent fabrication)
-3. Calculation of "Estimated Job Match" metric (strictly not labeled an ATS score).
-4. Relational `MatchAnalysis` entity and migration `005_create_match_tables.py`.
-5. Endpoint: `POST /api/v1/jobs/{job_id}/match`.
-6. Frontend Stage 3 Match Analysis & Evidence drawer UI.
+Ready for end-user testing and production usage at `http://localhost:5173`.
 
 ## Locked top-level product areas
 1. Auth
@@ -54,22 +63,15 @@ React, Vite, JavaScript, Tailwind CSS, Python, FastAPI, Pydantic, SQLAlchemy, Po
 
 ## Runtime placement
 - React: Docker application environment; local Vite development is allowed for fast iteration
-- FastAPI: Docker
-- PostgreSQL: Docker with persistent volume
-- Ollama: local/native
-- LaTeX: included in the backend Docker image
+- FastAPI: Docker / local Uvicorn
+- PostgreSQL: Docker with persistent volume on port 5433
+- Ollama: local/native on port 11434
+- LaTeX: MiKTeX / pdflatex host or backend container
 
 ## QA test management
 - Manual and automation testing are maintained in separate module-wise Excel workbooks.
 - Test cases are added and execution results are logged after the relevant feature reaches its testing stage.
 - CI checks and merge must pass before the project advances to the next feature.
 
-## Known TBD items
-- Exact Ollama model benchmark for JD analysis and tailoring
-- Deployment target (intentionally TBD for V1 local-first product)
-
 ## Known non-goals
 No autonomous job applications, no fabricated qualifications, no recruiter portal, no candidate ranking, no V1 job-board integrations, no unnecessary infrastructure additions.
-
-## Current issues
-None. Epics 0, 1, 2, 3, and 4 verified and passing.

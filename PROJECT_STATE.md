@@ -16,17 +16,34 @@ Epic 11 - Final Polish, Documentation & Docker Packaging Complete. All Project E
 - **Epic 9 — Application Tracking Engine & Dashboard**: `Application` relational model, Alembic migration 009, dedicated `/applications` pipeline dashboard with status filtering and interview notes, 1-click Workspace Stage 5 logging.
 - **Epic 10 — Testing, CI Pipeline & Security Hardening**: GitHub Actions CI workflow (`.github/workflows/ci.yml`), `SecurityHeadersMiddleware` (X-Content-Type-Options, X-Frame-Options: SAMEORIGIN), Playwright E2E browser test suite.
 - **Epic 11 — Final Polish, Documentation & Packaging**: Production multi-container Docker Compose configuration, idempotent database seed utility (`backend/seed.py`), sleek clutter-free neo-brutalist UI polish, and comprehensive production README documentation.
+- **Epic 12 — User Experience Polish & Stage 4/5 Refinements**:
+  - Full inline Edit & Save CRUD for Projects and Experience in Profile tab.
+  - Native `<input type="date">` calendar selectors for all historical dates.
+  - LaTeX Template Package Manager accepting `.zip` packages only, with compiler line removed.
+  - INR currency auto-formatting (`₹ 12,00,000`) for Opportunity compensation.
+  - Anti-hallucination JD experience extraction defaulting strictly to "Not specified" if unspecified.
+  - Stage 4 Progressive Tailoring Studio with full CRUD & inline Save buttons for every line (Resume Heading, Summary, Skills categories/items, Experience roles/bullets, Projects/bullets, Education & Certifications).
+  - Stage 5 clean "5. PDF" generation tab with audit health panel removed, MiKTeX compiler banner removed, terminal/black window removed, re-compile option removed, and reliable authenticated PDF download with automatic logging into the Applications tracker.
+- **Epic 13 — Template Engine Personalization, Multi-Cycle Isolation & Clean Flow**:
+  - Candidate-provided LaTeX template engine: Automatically renders resumes using candidate's uploaded `.tex` or `.zip` template; cleanly falls back to system base template when removed.
+  - Education & Certification inline CRUD: Added full inline Edit and Save functionality to Education and Certification cards in Candidate Profile.
+  - Seamless Stage 4 to Stage 5 transition: Eliminated direct download/audit modal popups upon clicking "Proceed to Stage 5: PDF", rendering the PDF preview directly in the viewer.
+  - Clean workspace multi-cycle isolation: Downloading a PDF auto-logs the opportunity to the Applications pipeline and fully wipes active workspace draft state so prior content never spills over into subsequent applications.
+- **Epic 14 — Compilation Hardening, Comprehensive JD Extraction & UI Streamlining**:
+  - LaTeX Compilation Resilience: Resolved pdflatex process hangs by adding `-halt-on-error` and `-disable-installer` flags, and injecting self-contained shims for `hyperref` and `parskip` packages to eliminate network CTAN calls and interactive prompts.
+  - Custom Template Compatibility: Added native regex support for `\begin{rSection}` environments (FAANGpath and modern CV templates) in `_inject_into_custom_template` so custom uploaded templates receive tailored content seamlessly.
+  - UI Simplification: Completely removed the "Categorized Technical Stack" section from Stage 2 (Job Requirements Analysis) per user request.
+  - Precision JD Scraping: Vastly expanded tech taxonomy for database roles, administration, protocols, data querying, and scripting; added intelligent sentence-level required vs. preferred classification and accurate experience-year parsing.
 
 ## Completion standard
-- 49 automated Pytest tests passing (100% pass rate, including automated GitHub repository extraction service tests).
-- 2 Playwright E2E browser journeys passing (100% pass rate).
-- QA Test Workbooks fully updated with actual execution records:
-  - `docs/PrivateResume_Automation_Test_Cases.xlsx` (53 automated tests logged)
-  - `docs/PrivateResume_Manual_Test_Cases.xlsx` (25 manual tests logged)
+- Backend & frontend servers actively running and healthy (FastAPI on 8005, Vite on 5173).
+- Frontend production bundle cleanly built with Vite (`npm run build`).
+- PDF compilation verified working in under 1 second without timing out.
+- JD extraction verified extracting comprehensive skillsets and accurate years.
 - All constitutional rules and architecture constraints respected (local-first, zero telemetry, non-fabrication, version immutability, modular monolith).
 
 ## Current next step
-Project V1 complete and ready for candidate deployment and usage.
+Ready for end-user testing and production usage at `http://localhost:5173`.
 
 ## Locked top-level product areas
 1. Auth

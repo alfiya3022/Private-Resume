@@ -93,6 +93,22 @@ class ProfileService:
         return project
 
     @classmethod
+    def update_project(cls, db: Session, user_id: int, project_id: int, project_in: Any) -> Optional[Project]:
+        profile = cls.get_or_create_profile(db, user_id)
+        project = db.query(Project).filter(
+            Project.id == project_id, Project.profile_id == profile.id
+        ).first()
+        if not project:
+            return None
+        update_data = project_in.model_dump(exclude_unset=True) if hasattr(project_in, "model_dump") else dict(project_in)
+        for field, value in update_data.items():
+            if hasattr(project, field) and value is not None:
+                setattr(project, field, value)
+        db.commit()
+        db.refresh(project)
+        return project
+
+    @classmethod
     def delete_project(cls, db: Session, user_id: int, project_id: int) -> bool:
         profile = cls.get_or_create_profile(db, user_id)
         project = db.query(Project).filter(
@@ -119,6 +135,22 @@ class ProfileService:
             is_current=exp_in.is_current,
         )
         db.add(exp)
+        db.commit()
+        db.refresh(exp)
+        return exp
+
+    @classmethod
+    def update_experience(cls, db: Session, user_id: int, exp_id: int, exp_in: Any) -> Optional[Experience]:
+        profile = cls.get_or_create_profile(db, user_id)
+        exp = db.query(Experience).filter(
+            Experience.id == exp_id, Experience.profile_id == profile.id
+        ).first()
+        if not exp:
+            return None
+        update_data = exp_in.model_dump(exclude_unset=True) if hasattr(exp_in, "model_dump") else dict(exp_in)
+        for field, value in update_data.items():
+            if hasattr(exp, field) and value is not None:
+                setattr(exp, field, value)
         db.commit()
         db.refresh(exp)
         return exp
@@ -153,6 +185,22 @@ class ProfileService:
         return edu
 
     @classmethod
+    def update_education(cls, db: Session, user_id: int, edu_id: int, edu_in: Any) -> Optional[Education]:
+        profile = cls.get_or_create_profile(db, user_id)
+        edu = db.query(Education).filter(
+            Education.id == edu_id, Education.profile_id == profile.id
+        ).first()
+        if not edu:
+            return None
+        update_data = edu_in.model_dump(exclude_unset=True) if hasattr(edu_in, "model_dump") else dict(edu_in)
+        for field, value in update_data.items():
+            if hasattr(edu, field) and value is not None:
+                setattr(edu, field, value)
+        db.commit()
+        db.refresh(edu)
+        return edu
+
+    @classmethod
     def delete_education(cls, db: Session, user_id: int, edu_id: int) -> bool:
         profile = cls.get_or_create_profile(db, user_id)
         edu = db.query(Education).filter(
@@ -177,6 +225,22 @@ class ProfileService:
             credential_url=cert_in.credential_url,
         )
         db.add(cert)
+        db.commit()
+        db.refresh(cert)
+        return cert
+
+    @classmethod
+    def update_certification(cls, db: Session, user_id: int, cert_id: int, cert_in: Any) -> Optional[Certification]:
+        profile = cls.get_or_create_profile(db, user_id)
+        cert = db.query(Certification).filter(
+            Certification.id == cert_id, Certification.profile_id == profile.id
+        ).first()
+        if not cert:
+            return None
+        update_data = cert_in.model_dump(exclude_unset=True) if hasattr(cert_in, "model_dump") else dict(cert_in)
+        for field, value in update_data.items():
+            if hasattr(cert, field) and value is not None:
+                setattr(cert, field, value)
         db.commit()
         db.refresh(cert)
         return cert

@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   XCircle,
 } from 'lucide-react';
+import { api } from '../api/client';
 import { jobsApi } from '../api/jobs';
 import { profileApi } from '../api/profile';
 import { tailoringApi } from '../api/tailoring';
@@ -53,6 +54,8 @@ export default function WorkspacePage({ currentUser }) {
   const [activeTailoredResume, setActiveTailoredResume] = useState(null);
   const [editableContent, setEditableContent] = useState(null);
   const [targetRoleInput, setTargetRoleInput] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newSkillInputs, setNewSkillInputs] = useState({});
   const [tailorLoading, setTailorLoading] = useState(false);
   const [tailorSaving, setTailorSaving] = useState(false);
   const [aiModal, setAiModal] = useState({
@@ -96,12 +99,22 @@ export default function WorkspacePage({ currentUser }) {
     raw_jd_text: '',
   });
 
+  const formatSalaryINR = (val) => {
+    if (!val) return '';
+    const digits = val.replace(/[^0-9]/g, '');
+    if (!digits) return '';
+    const lastThree = digits.substring(digits.length - 3);
+    const otherNumbers = digits.substring(0, digits.length - 3);
+    const formatted = otherNumbers !== '' ? otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + lastThree : lastThree;
+    return `₹ ${formatted}`;
+  };
+
   const steps = [
     { num: 1, label: '1. Add Inputs', desc: 'Master Resume & Job Description' },
     { num: 2, label: '2. Analyze JD', desc: 'Structured Requirements Extraction' },
     { num: 3, label: '3. Match Evidence', desc: 'Deterministic Skill Alignment' },
     { num: 4, label: '4. Tailor Resume', desc: 'Section Editing & AI Consultation' },
-    { num: 5, label: '5. Validate & PDF', desc: 'LaTeX Compilation & Quality Gate' },
+    { num: 5, label: '5. PDF', desc: 'ATS PDF Generation & Download' },
   ];
 
   useEffect(() => {
@@ -118,20 +131,44 @@ export default function WorkspacePage({ currentUser }) {
     }
   }, [activeJob]);
 
+  const resetWorkspaceForNewJob = (completedJobId = null) => {
+    if (completedJobId) {
+      setSavedJobs((prev) => prev.filter((j) => j.id !== completedJobId));
+    }
+    setActiveJob(null);
+    setJobForm({
+      company: '',
+      title: '',
+      location: '',
+      salary: '',
+      job_url: '',
+      raw_jd_text: '',
+    });
+    setAnalysis(null);
+    setMatchData(null);
+    setTailoredResumes([]);
+    setActiveTailoredResume(null);
+    setEditableContent(null);
+    setPdfArtifact(null);
+    setValidationReport(null);
+    setAppLogged(false);
+    setCurrentStep(1);
+    setSuccessMsg('');
+    setErrorMsg('');
+  };
+
   const loadWorkspaceContext = async () => {
     setLoading(true);
     try {
       const [resumesData, profileData, jobsData] = await Promise.all([
         profileApi.getResumes(),
         profileApi.getProfile(),
-        jobsApi.listJobs(),
+        jobsApi.listJobs('active'),
       ]);
       setResumes(resumesData);
       setProfile(profileData);
-      setSavedJobs(jobsData);
-      if (jobsData.length > 0 && !activeJob) {
-        setActiveJob(jobsData[0]);
-      }
+      setSavedJobs(jobsData || []);
+      // Do not auto-select previous jobs, so the workspace defaults to a clean page for new entry
     } catch (err) {
       setErrorMsg('Failed to load workspace data.');
     } finally {
@@ -232,10 +269,6 @@ export default function WorkspacePage({ currentUser }) {
       const res = await artifactsApi.generatePdf(activeTailoredResume.id);
       setPdfArtifact(res.pdf_artifact);
       setPdfRefreshKey((k) => k + 1);
-      setValidationPopup({
-        title: 'PDF Compiled',
-        message: 'Resume PDF compiled successfully with LaTeX. Ready for download or pre-flight audit.',
-      });
       try {
         const report = await validationApi.validateResume(activeTailoredResume.id);
         setValidationReport(report);
@@ -249,6 +282,61 @@ export default function WorkspacePage({ currentUser }) {
       setPdfLoading(false);
     }
   };
+
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!activeTailoredResume) return;
+    setDownloadingPdf(true);
+    setErrorMsg('');
+    const completedJob = activeJob;
+    try {
+      const token = api.getToken();
+      const filename = `Resume_${activeJob?.company?.replace(/\s+/g, '_') || 'Tailored'}.pdf`;
+      const response = await fetch(`/api/v1/tailored-resumes/${activeTailoredResume.id}/pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        throw new Error('Failed to retrieve PDF from server');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      // Automatically log to Applications section
+      if (completedJob) {
+        try {
+          await applicationsApi.createApplication({
+            job_id: completedJob.id,
+            tailored_resume_id: activeTailoredResume.id,
+            status: 'applied',
+            notes: `Auto-logged on PDF download. Tailored version v${activeTailoredResume.version_number}.`,
+          });
+        } catch (appErr) {
+          console.error('Auto-log application error:', appErr);
+        }
+      }
+
+      // Reset workspace so content from this job is not reused in the next cycle
+      resetWorkspaceForNewJob(completedJob?.id);
+
+      setValidationPopup({
+        title: 'Downloaded & Application Logged',
+        message: `Resume PDF "${filename}" downloaded successfully! Job details for "${completedJob?.company || completedJob?.title || 'Target Job'}" have been logged into your Applications tracker. Workspace has been reset for a fresh application.`,
+      });
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to download PDF.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
 
   const handleLogApplication = async () => {
     if (!activeJob || !activeTailoredResume) return;
@@ -531,6 +619,17 @@ export default function WorkspacePage({ currentUser }) {
             <span className="badge-tag bg-coral-light text-coral border-coral">
               {activeJob ? `${activeJob.title} @ ${activeJob.company}` : 'New Target Job'}
             </span>
+            {activeJob && (
+              <button
+                type="button"
+                onClick={() => resetWorkspaceForNewJob()}
+                className="btn-secondary text-[11px] py-1 px-2.5 flex items-center space-x-1 border-dashed"
+                title="Clear current job and start a new application intake"
+              >
+                <Plus className="w-3 h-3" />
+                <span>New Job Intake</span>
+              </button>
+            )}
           </div>
           <div className="flex items-center space-x-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
             {steps.map((s) => (
@@ -707,8 +806,8 @@ export default function WorkspacePage({ currentUser }) {
                       <input
                         type="text"
                         value={jobForm.salary}
-                        onChange={(e) => setJobForm({ ...jobForm, salary: e.target.value })}
-                        placeholder="e.g. $140,000"
+                        onChange={(e) => setJobForm({ ...jobForm, salary: formatSalaryINR(e.target.value) })}
+                        placeholder="e.g. ₹ 12,00,000"
                         className="w-full border-2 border-charcoal p-2 text-sm"
                       />
                     </div>
@@ -880,88 +979,6 @@ export default function WorkspacePage({ currentUser }) {
                 </div>
               </div>
 
-              {/* Technical Stack Breakdown */}
-              <div className="border-2 border-charcoal p-5 bg-white space-y-4">
-                <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal">
-                  Categorized Technical Stack
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 font-mono text-xs">
-                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
-                    <div className="font-bold flex items-center space-x-1 text-charcoal">
-                      <Code2 className="w-3.5 h-3.5 text-coral" />
-                      <span>Languages</span>
-                    </div>
-                    <div className="space-y-1">
-                      {analysis.languages?.map((item, idx) => (
-                        <div key={idx} className="truncate">• {item}</div>
-                      ))}
-                      {(!analysis.languages || analysis.languages.length === 0) && (
-                        <span className="text-charcoal-light">None listed</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
-                    <div className="font-bold flex items-center space-x-1 text-charcoal">
-                      <Layers className="w-3.5 h-3.5 text-coral" />
-                      <span>Frameworks</span>
-                    </div>
-                    <div className="space-y-1">
-                      {analysis.frameworks?.map((item, idx) => (
-                        <div key={idx} className="truncate">• {item}</div>
-                      ))}
-                      {(!analysis.frameworks || analysis.frameworks.length === 0) && (
-                        <span className="text-charcoal-light">None listed</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
-                    <div className="font-bold flex items-center space-x-1 text-charcoal">
-                      <Database className="w-3.5 h-3.5 text-coral" />
-                      <span>Databases</span>
-                    </div>
-                    <div className="space-y-1">
-                      {analysis.databases?.map((item, idx) => (
-                        <div key={idx} className="truncate">• {item}</div>
-                      ))}
-                      {(!analysis.databases || analysis.databases.length === 0) && (
-                        <span className="text-charcoal-light">None listed</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
-                    <div className="font-bold flex items-center space-x-1 text-charcoal">
-                      <Cloud className="w-3.5 h-3.5 text-coral" />
-                      <span>Cloud & Infra</span>
-                    </div>
-                    <div className="space-y-1">
-                      {analysis.cloud?.map((item, idx) => (
-                        <div key={idx} className="truncate">• {item}</div>
-                      ))}
-                      {(!analysis.cloud || analysis.cloud.length === 0) && (
-                        <span className="text-charcoal-light">None listed</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border border-cream-border p-3 space-y-2 bg-cream">
-                    <div className="font-bold flex items-center space-x-1 text-charcoal">
-                      <Wrench className="w-3.5 h-3.5 text-coral" />
-                      <span>Tools & DevOps</span>
-                    </div>
-                    <div className="space-y-1">
-                      {analysis.tools?.map((item, idx) => (
-                        <div key={idx} className="truncate">• {item}</div>
-                      ))}
-                      {(!analysis.tools || analysis.tools.length === 0) && (
-                        <span className="text-charcoal-light">None listed</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               {/* Responsibilities & Qualifications */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1376,26 +1393,70 @@ export default function WorkspacePage({ currentUser }) {
               {/* Resume Content Sections */}
               {editableContent && (
                 <div className="space-y-6">
+                  {/* Master Heading Edit Bar */}
+                  <div className="card-brutal bg-white p-3 flex flex-wrap items-center justify-between gap-3 border border-charcoal">
+                    <div className="flex items-center space-x-2 flex-1 min-w-[280px]">
+                      <span className="text-xs font-bold text-charcoal uppercase tracking-wider shrink-0">Resume Heading:</span>
+                      <input
+                        type="text"
+                        value={editableContent.resume_heading ?? 'Tailored Resume'}
+                        onChange={(e) => setEditableContent({ ...editableContent, resume_heading: e.target.value })}
+                        className="input-brutal text-xs font-bold py-1 px-2 flex-1"
+                        placeholder="e.g. Tailored Professional Resume"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleSaveResume(false)}
+                      className="btn-secondary text-xs py-1 px-2.5 flex items-center space-x-1"
+                    >
+                      <Save className="w-3 h-3" />
+                      <span>Save Heading</span>
+                    </button>
+                  </div>
+
                   {/* 1. Target Role & Professional Summary */}
                   <div className="card-brutal bg-white p-5 space-y-4">
-                    <div className="flex items-center justify-between border-b border-cream-border pb-2">
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
-                        <Briefcase className="w-4 h-4 text-coral" />
-                        <span>Target Role & Professional Summary</span>
-                      </h3>
-                      <button
-                        onClick={() =>
-                          openAskAiModal({
-                            section: 'summary',
-                            fieldKey: 'summary',
-                            currentText: editableContent.summary,
-                          })
-                        }
-                        className="btn-secondary text-xs py-1 px-2.5 flex items-center space-x-1 text-coral border-coral hover:bg-coral hover:text-white"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        <span>Ask AI to Polish Summary</span>
-                      </button>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-border pb-2">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Briefcase className="w-4 h-4 text-coral shrink-0" />
+                        <input
+                          type="text"
+                          value={editableContent.section_titles?.summary ?? 'Target Role & Professional Summary'}
+                          onChange={(e) =>
+                            setEditableContent({
+                              ...editableContent,
+                              section_titles: {
+                                ...(editableContent.section_titles || {}),
+                                summary: e.target.value,
+                              },
+                            })
+                          }
+                          className="font-bold text-xs uppercase tracking-wider text-charcoal bg-transparent border-b border-transparent hover:border-charcoal focus:border-charcoal focus:outline-hidden"
+                          title="Click to edit section title"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() =>
+                            openAskAiModal({
+                              section: 'summary',
+                              fieldKey: 'summary',
+                              currentText: editableContent.summary,
+                            })
+                          }
+                          className="btn-secondary text-xs py-1 px-2.5 flex items-center space-x-1 text-coral border-coral hover:bg-coral hover:text-white"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          <span>Ask AI to Polish Summary</span>
+                        </button>
+                        <button
+                          onClick={() => handleSaveResume(false)}
+                          className="btn-primary text-xs py-1 px-2.5 flex items-center space-x-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          <span>Save Summary</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-3">
@@ -1414,7 +1475,7 @@ export default function WorkspacePage({ currentUser }) {
 
                       <div>
                         <label className="block text-[11px] font-bold text-charcoal-muted uppercase mb-1">
-                          Executive Professional Summary
+                          Executive Professional Summary (Strictly Tailored to Target JD)
                         </label>
                         <textarea
                           rows={3}
@@ -1431,22 +1492,85 @@ export default function WorkspacePage({ currentUser }) {
 
                   {/* 2. Core Technical Skills */}
                   <div className="card-brutal bg-white p-5 space-y-4">
-                    <div className="flex items-center justify-between border-b border-cream-border pb-2">
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
-                        <Code2 className="w-4 h-4 text-coral" />
-                        <span>Technical Competencies (Evidence-Grounded)</span>
-                      </h3>
-                      <span className="badge-tag bg-emerald-50 text-emerald-900 border-emerald-600">
-                        Candidate Profile Backed
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-border pb-2">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Code2 className="w-4 h-4 text-coral shrink-0" />
+                        <input
+                          type="text"
+                          value={editableContent.section_titles?.skills ?? 'Technical Competencies (Evidence-Grounded)'}
+                          onChange={(e) =>
+                            setEditableContent({
+                              ...editableContent,
+                              section_titles: {
+                                ...(editableContent.section_titles || {}),
+                                skills: e.target.value,
+                              },
+                            })
+                          }
+                          className="font-bold text-xs uppercase tracking-wider text-charcoal bg-transparent border-b border-transparent hover:border-charcoal focus:border-charcoal focus:outline-hidden"
+                          title="Click to edit section title"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handleSaveResume(false)}
+                          className="btn-primary text-xs py-1 px-2.5 flex items-center space-x-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          <span>Save Skills</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Add new skill category */}
+                    <div className="flex items-center space-x-2 p-2 bg-cream-bg/40 border border-cream-border">
+                      <input
+                        type="text"
+                        placeholder="New Skill Category (e.g. Cloud & DevOps)"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        className="input-brutal text-xs py-1 px-2 flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!newCategoryName.trim()) return;
+                          const updated = { ...editableContent };
+                          if (!updated.skills) updated.skills = {};
+                          if (!updated.skills[newCategoryName.trim()]) {
+                            updated.skills[newCategoryName.trim()] = [];
+                          }
+                          setEditableContent(updated);
+                          setNewCategoryName('');
+                        }}
+                        className="btn-secondary text-xs py-1 px-2.5 flex items-center space-x-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Category</span>
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {Object.entries(editableContent.skills || {}).map(([category, skillsList]) => (
                         <div key={category} className="border border-cream-border p-3 space-y-2 bg-cream-bg/40">
-                          <span className="text-xs font-bold text-charcoal uppercase tracking-wider block">
-                            {category} ({skillsList.length})
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-charcoal uppercase tracking-wider block">
+                              {category} ({skillsList.length})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...editableContent };
+                                delete updated.skills[category];
+                                setEditableContent(updated);
+                              }}
+                              className="text-rose-600 hover:text-rose-800 text-xs"
+                              title="Delete category"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
                           <div className="flex flex-wrap gap-1.5">
                             {skillsList.map((skill, sIdx) => (
                               <span
@@ -1461,13 +1585,53 @@ export default function WorkspacePage({ currentUser }) {
                                     updated.skills[category] = updated.skills[category].filter((_, idx) => idx !== sIdx);
                                     setEditableContent(updated);
                                   }}
-                                  className="hover:text-rose-600 ml-1 text-[10px]"
-                                  title="Remove skill from tailored version"
+                                  className="hover:text-rose-600 ml-1 text-xs font-bold"
+                                  title="Remove skill"
                                 >
                                   ×
                                 </button>
                               </span>
                             ))}
+                          </div>
+
+                          {/* Add skill to category */}
+                          <div className="flex items-center space-x-1 pt-1 border-t border-cream-border/60">
+                            <input
+                              type="text"
+                              placeholder="Add skill..."
+                              value={newSkillInputs[category] || ''}
+                              onChange={(e) => setNewSkillInputs({ ...newSkillInputs, [category]: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const val = (newSkillInputs[category] || '').trim();
+                                  if (!val) return;
+                                  const updated = { ...editableContent };
+                                  if (!updated.skills[category].includes(val)) {
+                                    updated.skills[category] = [...updated.skills[category], val];
+                                  }
+                                  setEditableContent(updated);
+                                  setNewSkillInputs({ ...newSkillInputs, [category]: '' });
+                                }
+                              }}
+                              className="input-brutal text-[11px] py-0.5 px-1.5 flex-1"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const val = (newSkillInputs[category] || '').trim();
+                                if (!val) return;
+                                const updated = { ...editableContent };
+                                if (!updated.skills[category].includes(val)) {
+                                  updated.skills[category] = [...updated.skills[category], val];
+                                }
+                                setEditableContent(updated);
+                                setNewSkillInputs({ ...newSkillInputs, [category]: '' });
+                              }}
+                              className="btn-secondary text-[11px] py-0.5 px-2"
+                            >
+                              + Add
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1476,29 +1640,134 @@ export default function WorkspacePage({ currentUser }) {
 
                   {/* 3. Work Experience */}
                   <div className="card-brutal bg-white p-5 space-y-4">
-                    <div className="flex items-center justify-between border-b border-cream-border pb-2">
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
-                        <Building className="w-4 h-4 text-coral" />
-                        <span>Work Experience ({editableContent.experience?.length || 0})</span>
-                      </h3>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-border pb-2">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Building className="w-4 h-4 text-coral shrink-0" />
+                        <input
+                          type="text"
+                          value={editableContent.section_titles?.experience ?? `Work Experience (${editableContent.experience?.length || 0})`}
+                          onChange={(e) =>
+                            setEditableContent({
+                              ...editableContent,
+                              section_titles: {
+                                ...(editableContent.section_titles || {}),
+                                experience: e.target.value,
+                              },
+                            })
+                          }
+                          className="font-bold text-xs uppercase tracking-wider text-charcoal bg-transparent border-b border-transparent hover:border-charcoal focus:border-charcoal focus:outline-hidden"
+                          title="Click to edit section title"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...editableContent };
+                            if (!updated.experience) updated.experience = [];
+                            updated.experience.push({
+                              title: 'Software Engineer',
+                              company: 'Company Name',
+                              location: 'Remote',
+                              start_date: '2023-01',
+                              end_date: 'Present',
+                              bullets: ['Key contribution and engineering achievement aligned with target role.'],
+                            });
+                            setEditableContent(updated);
+                          }}
+                          className="btn-secondary text-xs py-1 px-2.5 flex items-center space-x-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Role</span>
+                        </button>
+                        <button
+                          onClick={() => handleSaveResume(false)}
+                          className="btn-primary text-xs py-1 px-2.5 flex items-center space-x-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          <span>Save Experience</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-4">
                       {editableContent.experience?.map((exp, expIdx) => (
                         <div key={expIdx} className="border-2 border-charcoal p-4 space-y-3 bg-cream-bg/20">
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-border pb-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 border-b border-cream-border pb-2">
                             <div>
-                              <span className="font-bold text-xs text-charcoal">{exp.title}</span>
-                              <span className="text-xs text-charcoal-muted"> at </span>
-                              <span className="font-bold text-xs text-charcoal">{exp.company}</span>
-                              {exp.location && (
-                                <span className="text-[11px] text-charcoal-muted"> • {exp.location}</span>
-                              )}
+                              <label className="text-[10px] font-bold text-charcoal-muted uppercase">Job Title</label>
+                              <input
+                                type="text"
+                                value={exp.title || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.experience[expIdx].title = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                className="input-brutal w-full text-xs font-bold py-1 px-2"
+                              />
                             </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-charcoal-muted uppercase">Company</label>
+                              <input
+                                type="text"
+                                value={exp.company || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.experience[expIdx].company = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                className="input-brutal w-full text-xs font-bold py-1 px-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-charcoal-muted uppercase">Location</label>
+                              <input
+                                type="text"
+                                value={exp.location || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.experience[expIdx].location = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                className="input-brutal w-full text-xs py-1 px-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-charcoal-muted uppercase">Start Date</label>
+                              <input
+                                type="text"
+                                value={exp.start_date || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.experience[expIdx].start_date = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                className="input-brutal w-full text-xs py-1 px-2"
+                                placeholder="e.g. 2022-01"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-charcoal-muted uppercase">End Date</label>
+                              <input
+                                type="text"
+                                value={exp.end_date || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.experience[expIdx].end_date = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                className="input-brutal w-full text-xs py-1 px-2"
+                                placeholder="e.g. Present"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-charcoal-muted uppercase">
+                              Accomplishment Bullets
+                            </span>
                             <div className="flex items-center space-x-2">
-                              <span className="text-[11px] text-charcoal-muted font-mono">
-                                {exp.start_date} - {exp.end_date}
-                              </span>
                               <button
                                 onClick={() =>
                                   openAskAiModal({
@@ -1513,13 +1782,22 @@ export default function WorkspacePage({ currentUser }) {
                                 <Sparkles className="w-3 h-3" />
                                 <span>Ask AI on Role</span>
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...editableContent };
+                                  updated.experience = updated.experience.filter((_, idx) => idx !== expIdx);
+                                  setEditableContent(updated);
+                                }}
+                                className="text-rose-600 hover:text-rose-800 text-xs p-1"
+                                title="Delete Role"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
 
                           <div className="space-y-2">
-                            <span className="text-[11px] font-bold text-charcoal-muted uppercase">
-                              Accomplishment Bullets
-                            </span>
                             {exp.bullets?.map((bullet, bIdx) => (
                               <div key={bIdx} className="flex items-start space-x-2">
                                 <span className="text-charcoal-muted text-xs mt-1.5">•</span>
@@ -1589,59 +1867,134 @@ export default function WorkspacePage({ currentUser }) {
 
                   {/* 4. Projects */}
                   <div className="card-brutal bg-white p-5 space-y-4">
-                    <div className="flex items-center justify-between border-b border-cream-border pb-2">
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
-                        <Layers className="w-4 h-4 text-coral" />
-                        <span>Key Projects ({editableContent.projects?.length || 0})</span>
-                      </h3>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-border pb-2">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <Layers className="w-4 h-4 text-coral shrink-0" />
+                        <input
+                          type="text"
+                          value={editableContent.section_titles?.projects ?? `Key Projects (${editableContent.projects?.length || 0})`}
+                          onChange={(e) =>
+                            setEditableContent({
+                              ...editableContent,
+                              section_titles: {
+                                ...(editableContent.section_titles || {}),
+                                projects: e.target.value,
+                              },
+                            })
+                          }
+                          className="font-bold text-xs uppercase tracking-wider text-charcoal bg-transparent border-b border-transparent hover:border-charcoal focus:border-charcoal focus:outline-hidden"
+                          title="Click to edit section title"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...editableContent };
+                            if (!updated.projects) updated.projects = [];
+                            updated.projects.push({
+                              name: 'New Project',
+                              link: '',
+                              technologies: ['Python', 'FastAPI'],
+                              bullets: ['Built scalable microservice handling real-time data.'],
+                            });
+                            setEditableContent(updated);
+                          }}
+                          className="btn-secondary text-xs py-1 px-2.5 flex items-center space-x-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Project</span>
+                        </button>
+                        <button
+                          onClick={() => handleSaveResume(false)}
+                          className="btn-primary text-xs py-1 px-2.5 flex items-center space-x-1"
+                        >
+                          <Save className="w-3 h-3" />
+                          <span>Save Projects</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-4">
                       {editableContent.projects?.map((proj, pIdx) => (
                         <div key={pIdx} className="border-2 border-charcoal p-4 space-y-3 bg-cream-bg/20">
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-border pb-2">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 border-b border-cream-border pb-2">
                             <div>
-                              <span className="font-bold text-xs text-charcoal">{proj.name}</span>
-                              {proj.link && (
-                                <a
-                                  href={proj.link}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-[11px] text-coral ml-2 hover:underline inline-flex items-center space-x-0.5"
-                                >
-                                  <LinkIcon className="w-3 h-3" />
-                                  <span>Repository</span>
-                                </a>
-                              )}
+                              <label className="text-[10px] font-bold text-charcoal-muted uppercase">Project Title</label>
+                              <input
+                                type="text"
+                                value={proj.name || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.projects[pIdx].name = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                className="input-brutal w-full text-xs font-bold py-1 px-2"
+                              />
                             </div>
-                            <button
-                              onClick={() =>
-                                openAskAiModal({
-                                  section: 'projects',
-                                  fieldKey: 'bullets',
-                                  index: pIdx,
-                                  currentText: (proj.bullets || []).join('\n'),
-                                })
-                              }
-                              className="btn-secondary text-[11px] py-0.5 px-2 text-coral border-coral hover:bg-coral hover:text-white flex items-center space-x-1"
-                            >
-                              <Sparkles className="w-3 h-3" />
-                              <span>Ask AI on Project</span>
-                            </button>
+                            <div>
+                              <label className="text-[10px] font-bold text-charcoal-muted uppercase">Repository / Live Link</label>
+                              <input
+                                type="text"
+                                value={proj.link || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.projects[pIdx].link = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                placeholder="https://github.com/..."
+                                className="input-brutal w-full text-xs py-1 px-2"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-charcoal-muted uppercase">Tech Stack (comma separated)</label>
+                              <input
+                                type="text"
+                                value={(proj.technologies || []).join(', ')}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.projects[pIdx].technologies = e.target.value.split(',').map((t) => t.trim()).filter(Boolean);
+                                  setEditableContent(updated);
+                                }}
+                                placeholder="React, Python, PostgreSQL"
+                                className="input-brutal w-full text-xs py-1 px-2"
+                              />
+                            </div>
                           </div>
 
-                          {proj.technologies && proj.technologies.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {proj.technologies.map((t, tIdx) => (
-                                <span
-                                  key={tIdx}
-                                  className="badge-tag text-[10px] bg-white text-charcoal border-charcoal"
-                                >
-                                  {t}
-                                </span>
-                              ))}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-charcoal-muted uppercase">
+                              Accomplishment Bullets
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() =>
+                                  openAskAiModal({
+                                    section: 'projects',
+                                    fieldKey: 'bullets',
+                                    index: pIdx,
+                                    currentText: (proj.bullets || []).join('\n'),
+                                  })
+                                }
+                                className="btn-secondary text-[11px] py-0.5 px-2 text-coral border-coral hover:bg-coral hover:text-white flex items-center space-x-1"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                <span>Ask AI on Project</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...editableContent };
+                                  updated.projects = updated.projects.filter((_, idx) => idx !== pIdx);
+                                  setEditableContent(updated);
+                                }}
+                                className="text-rose-600 hover:text-rose-800 text-xs p-1"
+                                title="Delete Project"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                          )}
+                          </div>
 
                           <div className="space-y-2">
                             {proj.bullets?.map((bullet, bIdx) => (
@@ -1672,6 +2025,22 @@ export default function WorkspacePage({ currentUser }) {
                                 </button>
                               </div>
                             ))}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...editableContent };
+                                updated.projects[pIdx].bullets = [
+                                  ...(updated.projects[pIdx].bullets || []),
+                                  'Engineered core features and optimized system performance.',
+                                ];
+                                setEditableContent(updated);
+                              }}
+                              className="btn-secondary text-[11px] py-1 px-2.5 flex items-center space-x-1 mt-2"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add Bullet Point</span>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1680,33 +2049,205 @@ export default function WorkspacePage({ currentUser }) {
 
                   {/* 5. Education & Certifications */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Education */}
                     <div className="card-brutal bg-white p-5 space-y-3">
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal border-b border-cream-border pb-2">
-                        Education Records ({editableContent.education?.length || 0})
-                      </h3>
+                      <div className="flex items-center justify-between border-b border-cream-border pb-2">
+                        <input
+                          type="text"
+                          value={editableContent.section_titles?.education ?? `Education Records (${editableContent.education?.length || 0})`}
+                          onChange={(e) =>
+                            setEditableContent({
+                              ...editableContent,
+                              section_titles: {
+                                ...(editableContent.section_titles || {}),
+                                education: e.target.value,
+                              },
+                            })
+                          }
+                          className="font-bold text-xs uppercase tracking-wider text-charcoal bg-transparent border-b border-transparent hover:border-charcoal focus:border-charcoal focus:outline-hidden"
+                          title="Click to edit section title"
+                        />
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...editableContent };
+                              if (!updated.education) updated.education = [];
+                              updated.education.push({
+                                degree: 'B.Tech in Computer Science',
+                                institution: 'University Name',
+                                year: '2023',
+                              });
+                              setEditableContent(updated);
+                            }}
+                            className="btn-secondary text-[10px] py-0.5 px-2 flex items-center space-x-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Add</span>
+                          </button>
+                          <button
+                            onClick={() => handleSaveResume(false)}
+                            className="btn-primary text-[10px] py-0.5 px-2 flex items-center space-x-1"
+                          >
+                            <Save className="w-3 h-3" />
+                            <span>Save</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         {editableContent.education?.map((edu, idx) => (
-                          <div key={idx} className="p-2 border border-cream-border text-xs space-y-0.5">
-                            <span className="font-bold text-charcoal block">{edu.degree}</span>
-                            <span className="text-charcoal-muted block">
-                              {edu.institution} {edu.year ? `(${edu.year})` : ''}
-                            </span>
+                          <div key={idx} className="p-2 border border-cream-border text-xs space-y-1 bg-cream-bg/20">
+                            <div className="flex items-center justify-between">
+                              <input
+                                type="text"
+                                value={edu.degree || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.education[idx].degree = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                placeholder="Degree"
+                                className="input-brutal text-xs font-bold py-0.5 px-1.5 flex-1 mr-2"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...editableContent };
+                                  updated.education = updated.education.filter((_, i) => i !== idx);
+                                  setEditableContent(updated);
+                                }}
+                                className="text-rose-600 hover:text-rose-800"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="text"
+                                value={edu.institution || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.education[idx].institution = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                placeholder="Institution"
+                                className="input-brutal text-[11px] py-0.5 px-1.5"
+                              />
+                              <input
+                                type="text"
+                                value={edu.year || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.education[idx].year = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                placeholder="Year (e.g. 2024)"
+                                className="input-brutal text-[11px] py-0.5 px-1.5"
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
+                    {/* Certifications */}
                     <div className="card-brutal bg-white p-5 space-y-3">
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal border-b border-cream-border pb-2">
-                        Certifications ({editableContent.certifications?.length || 0})
-                      </h3>
+                      <div className="flex items-center justify-between border-b border-cream-border pb-2">
+                        <input
+                          type="text"
+                          value={editableContent.section_titles?.certifications ?? `Certifications (${editableContent.certifications?.length || 0})`}
+                          onChange={(e) =>
+                            setEditableContent({
+                              ...editableContent,
+                              section_titles: {
+                                ...(editableContent.section_titles || {}),
+                                certifications: e.target.value,
+                              },
+                            })
+                          }
+                          className="font-bold text-xs uppercase tracking-wider text-charcoal bg-transparent border-b border-transparent hover:border-charcoal focus:border-charcoal focus:outline-hidden"
+                          title="Click to edit section title"
+                        />
+                        <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...editableContent };
+                              if (!updated.certifications) updated.certifications = [];
+                              updated.certifications.push({
+                                name: 'AWS Certified Solutions Architect',
+                                issuer: 'Amazon Web Services',
+                                year: '2024',
+                              });
+                              setEditableContent(updated);
+                            }}
+                            className="btn-secondary text-[10px] py-0.5 px-2 flex items-center space-x-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Add</span>
+                          </button>
+                          <button
+                            onClick={() => handleSaveResume(false)}
+                            className="btn-primary text-[10px] py-0.5 px-2 flex items-center space-x-1"
+                          >
+                            <Save className="w-3 h-3" />
+                            <span>Save</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         {editableContent.certifications?.map((cert, idx) => (
-                          <div key={idx} className="p-2 border border-cream-border text-xs space-y-0.5">
-                            <span className="font-bold text-charcoal block">{cert.name}</span>
-                            <span className="text-charcoal-muted block">
-                              {cert.issuer} {cert.year ? `• ${cert.year}` : ''}
-                            </span>
+                          <div key={idx} className="p-2 border border-cream-border text-xs space-y-1 bg-cream-bg/20">
+                            <div className="flex items-center justify-between">
+                              <input
+                                type="text"
+                                value={cert.name || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.certifications[idx].name = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                placeholder="Certification Name"
+                                className="input-brutal text-xs font-bold py-0.5 px-1.5 flex-1 mr-2"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...editableContent };
+                                  updated.certifications = updated.certifications.filter((_, i) => i !== idx);
+                                  setEditableContent(updated);
+                                }}
+                                className="text-rose-600 hover:text-rose-800"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="text"
+                                value={cert.issuer || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.certifications[idx].issuer = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                placeholder="Issuer"
+                                className="input-brutal text-[11px] py-0.5 px-1.5"
+                              />
+                              <input
+                                type="text"
+                                value={cert.year || ''}
+                                onChange={(e) => {
+                                  const updated = { ...editableContent };
+                                  updated.certifications[idx].year = e.target.value;
+                                  setEditableContent(updated);
+                                }}
+                                placeholder="Year"
+                                className="input-brutal text-[11px] py-0.5 px-1.5"
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1720,8 +2261,16 @@ export default function WorkspacePage({ currentUser }) {
                 <button onClick={() => setCurrentStep(3)} className="btn-secondary text-xs">
                   ← Back to Stage 3: Match Evidence
                 </button>
-                <button onClick={() => setCurrentStep(5)} className="btn-primary flex items-center space-x-2">
-                  <span>Proceed to Stage 5: Validate & PDF</span>
+                <button
+                  onClick={() => {
+                    setCurrentStep(5);
+                    if (!pdfArtifact && activeTailoredResume) {
+                      handleGeneratePdf();
+                    }
+                  }}
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  <span>Proceed to Stage 5: PDF</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1760,177 +2309,54 @@ export default function WorkspacePage({ currentUser }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={handleGeneratePdf}
-                    disabled={pdfLoading}
-                    className="btn-primary text-xs flex items-center space-x-1.5 py-1.5 px-3"
-                  >
-                    {pdfLoading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
-                        <span>Compiling LaTeX...</span>
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>{pdfArtifact ? 'Re-compile PDF' : 'Compile ATS PDF'}</span>
-                      </>
-                    )}
-                  </button>
-
-                  {pdfArtifact && (
+                  {!pdfArtifact ? (
+                    <button
+                      onClick={handleGeneratePdf}
+                      disabled={pdfLoading}
+                      className="btn-primary text-xs flex items-center space-x-1.5 py-1.5 px-3"
+                    >
+                      {pdfLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                          <span>Compiling LaTeX...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Compile ATS PDF</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
                     <>
                       <button
-                        onClick={handleLogApplication}
-                        disabled={loggingApp || appLogged}
-                        className={`btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white ${
-                          appLogged
-                            ? 'opacity-60 cursor-not-allowed text-emerald-900 border-emerald-500'
-                            : 'hover:bg-cream-bg text-emerald-800 border-emerald-600'
-                        }`}
-                        title="Record this submitted version in your Application Pipeline"
+                        onClick={handleDownloadPdf}
+                        disabled={downloadingPdf}
+                        className="btn-primary text-xs flex items-center space-x-1.5 py-1.5 px-3"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{loggingApp ? 'Logging...' : (appLogged ? 'Application Logged' : 'Log Application')}</span>
+                        {downloadingPdf ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                            <span>Downloading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5 text-white" />
+                            <span>Download PDF</span>
+                          </>
+                        )}
                       </button>
 
-                      <a
-                        href={artifactsApi.getPdfUrl(activeTailoredResume.id)}
-                        download={`Resume_${activeJob?.company || 'Tailored'}.pdf`}
-                        className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg"
-                      >
-                        <Download className="w-3.5 h-3.5 text-coral" />
-                        <span>Download PDF</span>
-                      </a>
-
-                      <a
-                        href={artifactsApi.getTexUrl(activeTailoredResume.id)}
-                        download={`resume_source.tex`}
-                        className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg"
-                      >
-                        <FileCode className="w-3.5 h-3.5 text-charcoal-muted" />
-                        <span>LaTeX Source</span>
-                      </a>
-
-                      <a
-                        href={artifactsApi.getPdfUrl(activeTailoredResume.id)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg"
-                        title="Open in new browser tab"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 text-charcoal-muted" />
-                      </a>
+                      {appLogged && (
+                        <span className="badge-tag bg-emerald-50 text-emerald-800 border-emerald-600 text-xs flex items-center space-x-1 py-1 px-2.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Application Logged</span>
+                        </span>
+                      )}
                     </>
                   )}
                 </div>
               </div>
-
-              {/* ATS Pre-Flight Quality Gate Panel */}
-              {pdfArtifact && (
-                <div className="card-brutal bg-white p-4 border-2 border-charcoal shadow-brutal-sm space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cream-border pb-3">
-                    <div className="flex items-center space-x-2.5">
-                      <div className="p-2 border border-charcoal bg-cream-bg">
-                        <ShieldCheck className="w-5 h-5 text-emerald-700" />
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-bold text-xs uppercase tracking-wider text-charcoal">
-                            ATS Pre-Flight Quality Gate
-                          </h3>
-                          {validationReport && (
-                            <span
-                              className={`badge-tag text-[10px] font-bold ${
-                                validationReport.overall_status === 'PASS'
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-600'
-                                  : validationReport.overall_status === 'WARN'
-                                  ? 'bg-amber-50 text-amber-800 border-amber-600'
-                                  : 'bg-rose-50 text-rose-800 border-rose-600'
-                              }`}
-                            >
-                              {validationReport.score}/100 • {validationReport.overall_status}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-charcoal-muted">
-                          Automated checks verify PDF structure, extractable text, contact info, headings, and candidate evidence integrity.
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={handleRunValidation}
-                      disabled={validating}
-                      className="btn-secondary text-xs flex items-center space-x-1.5 py-1.5 px-3 bg-white hover:bg-cream-bg"
-                    >
-                      {validating ? (
-                        <>
-                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-charcoal border-t-transparent" />
-                          <span>Auditing ATS Health...</span>
-                        </>
-                      ) : validationReport ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Audit Completed</span>
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 text-charcoal-muted" />
-                          <span>Run ATS Audit</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* 6-Point ATS Checklist Grid */}
-                  {validationReport?.checks ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
-                      {Object.entries(validationReport.checks).map(([key, check]) => {
-                        const isPass = check.status === 'PASS';
-                        const isWarn = check.status === 'WARN';
-                        return (
-                          <div
-                            key={key}
-                            className={`p-2.5 border text-xs space-y-1 ${
-                              isPass
-                                ? 'border-emerald-200 bg-emerald-50/30'
-                                : isWarn
-                                ? 'border-amber-200 bg-amber-50/30'
-                                : 'border-rose-200 bg-rose-50/30'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-charcoal flex items-center space-x-1.5 text-[11px]">
-                                {isPass && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-                                {isWarn && <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
-                                {!isPass && !isWarn && <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
-                                <span>{check.title}</span>
-                              </span>
-                              <span
-                                className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                                  isPass
-                                    ? 'text-emerald-700 bg-emerald-100'
-                                    : isWarn
-                                    ? 'text-amber-800 bg-amber-100'
-                                    : 'text-rose-800 bg-rose-100'
-                                }`}
-                              >
-                                {check.status}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-charcoal-muted leading-relaxed">{check.message}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-charcoal-muted italic py-1">
-                      Click "Run ATS Audit" to evaluate this compiled PDF against ATS parser benchmarks.
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Main PDF Preview Window */}
               {pdfArtifact ? (
@@ -1938,14 +2364,14 @@ export default function WorkspacePage({ currentUser }) {
                   <div className="flex items-center justify-between px-3 py-1.5 border-b border-cream-border text-[11px] text-charcoal-muted">
                     <span className="flex items-center space-x-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="font-bold text-charcoal">ATS Document Preview (Compiled via MiKTeX pdfTeX)</span>
+                      <span className="font-bold text-charcoal">Resume PDF Preview</span>
                     </span>
                     <span>File Size: {Math.round((pdfArtifact.file_size || 0) / 1024)} KB</span>
                   </div>
 
                   <iframe
                     key={pdfRefreshKey}
-                    src={`${artifactsApi.getPdfUrl(activeTailoredResume.id)}?t=${pdfRefreshKey}`}
+                    src={`${artifactsApi.getPdfUrl(activeTailoredResume.id)}?token=${api.getToken()}&t=${pdfRefreshKey}`}
                     className="w-full h-[780px] border border-charcoal bg-white"
                     title="Compiled PDF Preview"
                   />
@@ -1959,7 +2385,7 @@ export default function WorkspacePage({ currentUser }) {
                     ATS Resume Not Yet Compiled
                   </h3>
                   <p className="text-xs text-charcoal-muted max-w-md mx-auto">
-                    Click compile below to transform your tailored resume into a high-density, ATS-parsable PDF document.
+                    Click compile below to transform your tailored resume into an ATS-parsable PDF document.
                   </p>
                   <button
                     onClick={handleGeneratePdf}
@@ -1974,7 +2400,7 @@ export default function WorkspacePage({ currentUser }) {
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4" />
-                        <span>Compile ATS-Ready PDF</span>
+                        <span>Compile ATS PDF</span>
                       </>
                     )}
                   </button>

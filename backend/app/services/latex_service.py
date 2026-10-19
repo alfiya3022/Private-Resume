@@ -1,8 +1,10 @@
+import json
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -45,8 +47,128 @@ class LatexService:
         storage_base.mkdir(parents=True, exist_ok=True)
         return storage_base
 
-    def render_latex(self, candidate_name: str, candidate_email: str, phone: str, location: str, content: Dict[str, Any], target_role: str) -> str:
-        """Constructs an ATS-compliant, single/two-page clean LaTeX document."""
+    def get_user_template_dir(self, user_id: int) -> Path:
+        """Ensures isolated custom template directory for target user."""
+        tpl_dir = Path(settings.STORAGE_DIR) / "templates" / str(user_id)
+        tpl_dir.mkdir(parents=True, exist_ok=True)
+        return tpl_dir
+
+    def get_custom_template_path(self, user_id: Optional[int]) -> Optional[Path]:
+        """Returns path to user's custom template main.tex if present."""
+        if not user_id:
+            return None
+        tpl_dir = Path(settings.STORAGE_DIR) / "templates" / str(user_id)
+        main_tex = tpl_dir / "main.tex"
+        if main_tex.exists() and main_tex.stat().st_size > 0:
+            return main_tex
+        return None
+
+    def save_user_template(self, user_id: int, filename: str, content: bytes) -> Dict[str, Any]:
+        """Saves or extracts user-provided LaTeX template (.tex or .zip)."""
+        tpl_dir = self.get_user_template_dir(user_id)
+        # Clear previous custom template files
+        for item in tpl_dir.iterdir():
+            if item.is_file():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
+
+        lower_name = filename.lower()
+        if lower_name.endswith(".zip"):
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_zip:
+                tmp_zip.write(content)
+                tmp_zip_path = Path(tmp_zip.name)
+            try:
+                with zipfile.ZipFile(tmp_zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(tpl_dir)
+                # Find the primary .tex file
+                tex_files = list(tpl_dir.glob("*.tex"))
+                if not tex_files:
+                    tex_files = list(tpl_dir.rglob("*.tex"))
+                if not tex_files:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="The uploaded .zip package must contain at least one .tex template file.",
+                    )
+                # Ensure main.tex exists
+                main_tex = tpl_dir / "main.tex"
+                if not main_tex.exists():
+                    shutil.copy2(tex_files[0], main_tex)
+            finally:
+                if tmp_zip_path.exists():
+                    tmp_zip_path.unlink()
+        elif lower_name.endswith(".tex"):
+            (tpl_dir / "main.tex").write_bytes(content)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Supported formats: .tex template file or .zip template package.",
+            )
+
+        # Store metadata
+        meta = {
+            "filename": filename,
+            "size_bytes": len(content),
+            "updated_at": Path(tpl_dir / "main.tex").stat().st_mtime,
+        }
+        (tpl_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+        return {
+            "status": "success",
+            "message": f"Custom template '{filename}' installed and activated.",
+            "filename": filename,
+            "has_custom_template": True,
+        }
+
+    def get_user_template_info(self, user_id: int) -> Dict[str, Any]:
+        """Returns metadata about the user's active custom template, or default status."""
+        tpl_path = self.get_custom_template_path(user_id)
+        if not tpl_path:
+            return {
+                "has_custom_template": False,
+                "template_name": "Modern Editorial (System Default)",
+                "filename": None,
+                "size": None,
+            }
+
+        meta_file = Path(settings.STORAGE_DIR) / "templates" / str(user_id) / "meta.json"
+        filename = "custom_template.tex"
+        size_str = f"{Math_round(tpl_path.stat().st_size / 1024) if hasattr(tpl_path, 'size') else round(tpl_path.stat().st_size / 1024)} KB"
+        date_str = ""
+        if meta_file.exists():
+            try:
+                data = json.loads(meta_file.read_text(encoding="utf-8"))
+                filename = data.get("filename", filename)
+                size_str = f"{round(data.get('size_bytes', tpl_path.stat().st_size) / 1024)} KB"
+            except Exception:
+                pass
+
+        return {
+            "has_custom_template": True,
+            "template_name": filename,
+            "filename": filename,
+            "size": size_str,
+        }
+
+    def delete_user_template(self, user_id: int) -> bool:
+        """Removes the custom template for target user, reverting to system default."""
+        tpl_dir = Path(settings.STORAGE_DIR) / "templates" / str(user_id)
+        if tpl_dir.exists():
+            shutil.rmtree(tpl_dir, ignore_errors=True)
+            return True
+        return False
+
+    def render_latex(
+        self,
+        candidate_name: str,
+        candidate_email: str,
+        phone: str,
+        location: str,
+        content: Dict[str, Any],
+        target_role: str,
+        user_id: Optional[int] = None,
+    ) -> str:
+        """Constructs a clean LaTeX document using either user-provided template or default ATS template."""
         role_esc = latex_escape(target_role or "Software Engineer")
         name_esc = latex_escape(candidate_name or "Candidate")
         email_esc = latex_escape(candidate_email or "")
@@ -123,6 +245,29 @@ class LatexService:
             edu_blocks.append(f"\\textbf{{{deg}}} $\\cdot$ \\textit{{{inst}}}{gpa_str}{yr_str} \\\\")
         education_section = "\n".join(edu_blocks)
 
+        # Check for user-provided custom LaTeX template
+        custom_tpl_path = self.get_custom_template_path(user_id)
+        if custom_tpl_path and custom_tpl_path.exists():
+            try:
+                tpl_text = custom_tpl_path.read_text(encoding="utf-8")
+                return self._inject_into_custom_template(
+                    tpl_text,
+                    name_esc=name_esc,
+                    role_esc=role_esc,
+                    contact_line=contact_line,
+                    email_esc=email_esc,
+                    phone_esc=phone_esc,
+                    loc_esc=loc_esc,
+                    summary=summary,
+                    skills_block=skills_block,
+                    experiences_section=experiences_section,
+                    projects_section=projects_section,
+                    education_section=education_section,
+                )
+            except Exception:
+                # If custom template parse fails, gracefully fall back to default
+                pass
+
         # Assemble document using core LaTeX primitives (zero external dependencies required)
         tex = f"""\\documentclass[10pt]{{article}}
 \\setlength{{\\topmargin}}{{-0.5in}}
@@ -178,17 +323,156 @@ class LatexService:
 """
         return tex
 
-    def compile_pdf(self, tex_content: str, output_base_name: str, target_dir: Path) -> Dict[str, Any]:
+    def _inject_into_custom_template(
+        self,
+        template_text: str,
+        name_esc: str,
+        role_esc: str,
+        contact_line: str,
+        email_esc: str,
+        phone_esc: str,
+        loc_esc: str,
+        summary: str,
+        skills_block: str,
+        experiences_section: str,
+        projects_section: str,
+        education_section: str,
+    ) -> str:
+        """Injects tailored candidate content into user-provided LaTeX template."""
+        text = template_text
+
+        # 1. Direct placeholder replacements
+        replacements = {
+            "{{NAME}}": name_esc,
+            "{{ROLE}}": role_esc,
+            "{{TITLE}}": role_esc,
+            "{{HEADLINE}}": role_esc,
+            "{{CONTACT}}": contact_line,
+            "{{EMAIL}}": email_esc,
+            "{{PHONE}}": phone_esc,
+            "{{LOCATION}}": loc_esc,
+            "{{SUMMARY}}": summary,
+            "{{SKILLS}}": skills_block,
+            "{{EXPERIENCE}}": experiences_section,
+            "{{WORK_EXPERIENCE}}": experiences_section,
+            "{{PROJECTS}}": projects_section,
+            "{{EDUCATION}}": education_section,
+            "<<NAME>>": name_esc,
+            "<<ROLE>>": role_esc,
+            "<<CONTACT>>": contact_line,
+            "<<EMAIL>>": email_esc,
+            "<<PHONE>>": phone_esc,
+            "<<LOCATION>>": loc_esc,
+            "<<SUMMARY>>": summary,
+            "<<SKILLS>>": skills_block,
+            "<<EXPERIENCE>>": experiences_section,
+            "<<PROJECTS>>": projects_section,
+            "<<EDUCATION>>": education_section,
+        }
+
+        replaced_count = 0
+        for placeholder, val in replacements.items():
+            if placeholder in text:
+                text = text.replace(placeholder, val)
+                replaced_count += 1
+
+        # 2. If no direct placeholders, smartly replace sections (supports \begin{rSection}, \section, \cvsection)
+        if replaced_count == 0:
+            # Replace candidate name in \name{...}, \author{...}, or \Huge...
+            text = re.sub(r'(\\name\{)[^}]*(\})', rf'\g<1>{name_esc}\g<2>', text, count=1)
+            text = re.sub(r'(\\author\{)[^}]*(\})', rf'\g<1>{name_esc}\g<2>', text, count=1)
+            text = re.sub(r'(\\Huge\s*(?:\\textbf)?\{)[^}]*(\})', rf'\g<1>{name_esc}\g<2>', text, count=1)
+
+            # A. Match \begin{rSection}{TITLE} ... \end{rSection} (e.g. FAANGPath, Trey Hunner resume templates)
+            rsec_map = [
+                (r'(\\begin\{rSection\}\{(?i:Summary|Professional Summary)\}\s*)([\s\S]*?)(\\end\{rSection\})', rf'\g<1>\n\n{summary}\n\n\g<3>'),
+                (r'(\\begin\{rSection\}\{(?i:Skills|Technical Skills|Competencies)\}\s*)([\s\S]*?)(\\end\{rSection\})', rf'\g<1>\n\n{skills_block}\n\n\g<3>'),
+                (r'(\\begin\{rSection\}\{(?i:Experience|Work Experience|Professional Experience)\}\s*)([\s\S]*?)(\\end\{rSection\})', rf'\g<1>\n\n{experiences_section}\n\n\g<3>'),
+                (r'(\\begin\{rSection\}\{(?i:Projects|Key Projects|Personal Projects)\}\s*)([\s\S]*?)(\\end\{rSection\})', rf'\g<1>\n\n{projects_section}\n\n\g<3>'),
+                (r'(\\begin\{rSection\}\{(?i:Education|Academic Background)\}\s*)([\s\S]*?)(\\end\{rSection\})', rf'\g<1>\n\n{education_section}\n\n\g<3>'),
+            ]
+            for pattern, repl in rsec_map:
+                if re.search(pattern, text):
+                    text = re.sub(pattern, repl, text, count=1)
+
+            # B. Match standard LaTeX \section blocks
+            sec_map = [
+                (r'(\\section\*?\{(?i:Professional Summary|Summary)\}\s*)([\s\S]*?)(?=\\section|\%---|\\end\{document\}|$)', f"\\g<1>{summary}\n\n"),
+                (r'(\\section\*?\{(?i:Skills|Technical Skills|Competencies|Technical Competencies)\}\s*)([\s\S]*?)(?=\\section|\%---|\\end\{document\}|$)', f"\\g<1>{skills_block}\n\n"),
+                (r'(\\section\*?\{(?i:Experience|Work Experience|Professional Experience)\}\s*)([\s\S]*?)(?=\\section|\%---|\\end\{document\}|$)', f"\\g<1>{experiences_section}\n\n"),
+                (r'(\\section\*?\{(?i:Projects|Key Projects|Personal Projects)\}\s*)([\s\S]*?)(?=\\section|\%---|\\end\{document\}|$)', f"\\g<1>{projects_section}\n\n"),
+                (r'(\\section\*?\{(?i:Education|Academic Background)\}\s*)([\s\S]*?)(?=\\section|\%---|\\end\{document\}|$)', f"\\g<1>{education_section}\n\n"),
+            ]
+            for pattern, repl in sec_map:
+                if re.search(pattern, text):
+                    text = re.sub(pattern, repl, text, count=1)
+
+        # Sanitize \usepackage{hyperref} to self-contained shims if needed
+        safe_href_shim = (
+            "\\providecommand{\\href}[2]{\\underline{#2}}\n"
+            "\\providecommand{\\url}[1]{\\texttt{#1}}\n"
+            "\\providecommand{\\hypersetup}[1]{}\n"
+        )
+        if "\\usepackage{hyperref}" in text:
+            text = text.replace("\\usepackage{hyperref}", safe_href_shim)
+
+        return text
+
+    def compile_pdf(
+        self,
+        tex_content: str,
+        output_base_name: str,
+        target_dir: Path,
+        user_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
         """Compiles LaTeX source code into PDF via pdflatex within an isolated temporary workspace."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            tex_file = tmp_path / f"{output_base_name}.tex"
-            tex_file.write_text(tex_content, encoding="utf-8")
 
-            # Run pdflatex safely: -no-shell-escape forbids external command execution
+            # Copy user custom template dependencies (.cls, .sty, images) into compilation workspace
+            if user_id:
+                tpl_dir = self.get_user_template_dir(user_id)
+                if tpl_dir.exists():
+                    for item in tpl_dir.iterdir():
+                        if item.is_file() and item.name not in ["main.tex", "meta.json"]:
+                            dest_file = tmp_path / item.name
+                            shutil.copy2(item, dest_file)
+                            # Make .cls self-contained if it imports hyperref/parskip
+                            if item.suffix == ".cls":
+                                try:
+                                    cls_text = dest_file.read_text(encoding="utf-8")
+                                    # Safe parskip replacement
+                                    cls_text = cls_text.replace(
+                                        r"\usepackage[parfill]{parskip}",
+                                        r"\setlength{\parindent}{0pt}\setlength{\parskip}{0.5\baselineskip}",
+                                    )
+                                    # Safe hyperref replacement
+                                    cls_text = cls_text.replace(
+                                        r"\usepackage{hyperref}",
+                                        r"\providecommand{\href}[2]{#2}\providecommand{\url}[1]{\texttt{#1}}\providecommand{\hypersetup}[1]{}",
+                                    )
+                                    cls_text = re.sub(r'\\hypersetup\{[^}]*\}', '', cls_text)
+                                    dest_file.write_text(cls_text, encoding="utf-8")
+                                except Exception:
+                                    pass
+
+            # Safe shims for tex_content
+            cleaned_tex = tex_content
+            if "\\usepackage{hyperref}" in cleaned_tex:
+                cleaned_tex = cleaned_tex.replace(
+                    r"\usepackage{hyperref}",
+                    r"\providecommand{\href}[2]{\underline{#2}}\providecommand{\url}[1]{\texttt{#1}}\providecommand{\hypersetup}[1]{}"
+                )
+
+            tex_file = tmp_path / f"{output_base_name}.tex"
+            tex_file.write_text(cleaned_tex, encoding="utf-8")
+
+            # Run pdflatex safely with -halt-on-error and -disable-installer to NEVER hang
             cmd = [
                 "pdflatex",
                 "-interaction=nonstopmode",
+                "-halt-on-error",
+                "-disable-installer",
                 "-no-shell-escape",
                 f"{output_base_name}.tex",
             ]
@@ -198,7 +482,7 @@ class LatexService:
                 cwd=tmp_path,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=20,
             )
 
             compiled_pdf = tmp_path / f"{output_base_name}.pdf"
@@ -243,7 +527,7 @@ class LatexService:
         phone = profile.phone if profile else ""
         location = profile.location if profile else ""
 
-        # Render LaTeX
+        # Render LaTeX using user's template if uploaded, otherwise system default
         tex_source = self.render_latex(
             candidate_name=user.full_name or "Candidate",
             candidate_email=user.email,
@@ -251,13 +535,14 @@ class LatexService:
             location=location,
             content=resume.content or {},
             target_role=resume.target_role or "Software Engineer",
+            user_id=user.id,
         )
 
         user_storage = self.get_user_artifact_dir(user.id)
         base_name = f"resume_v{resume.version_number}_job{resume.job_id}"
 
-        # Compile PDF
-        compile_result = self.compile_pdf(tex_source, base_name, user_storage)
+        # Compile PDF with user template support
+        compile_result = self.compile_pdf(tex_source, base_name, user_storage, user_id=user.id)
 
         # Save/update PDF artifact
         pdf_artifact = db.query(ResumeArtifact).filter(

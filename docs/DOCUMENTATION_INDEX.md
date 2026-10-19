@@ -1,40 +1,48 @@
-# PrivateResume - Documentation Index
+# PrivateResume - Engineering & Product Documentation Index
 
-This documentation set is the current planning and engineering baseline for PrivateResume.
+Welcome to the PrivateResume documentation repository. This directory houses the complete engineering baseline, architecture decision records (ADRs), product specifications, and quality governance assets.
 
-## Product
-- `PRD.md` - product requirements and V1 scope
-- `BRD.md` - business problem, rules, value, and success measures
-- `USER_STORIES.md` - user stories and acceptance criteria
+---
 
-## Design and architecture
-- `DESIGN_SPEC.md` - locked UI/UX system and workflow
-- `ARCHITECTURE.md` - system architecture and boundaries
-- `TECH_STACK.md` - technology choices and reasons
-- `API_SPEC.md` - REST API contract baseline
-- `DATABASE_DESIGN.md` - relational model and invariants
-- `ADRs.md` - architecture decisions and trade-offs
+## 1. Product & Business Specifications
+- [`PRD.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/PRD.md) — Product Requirements Document: user personas, functional requirements, and anti-fabrication principles.
+- [`BRD.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/BRD.md) — Business Requirements Document: core business drivers, value proposition, and success metrics.
+- [`USER_STORIES.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/USER_STORIES.md) — Module-level user stories, scenarios, and acceptance criteria.
 
-## Engineering and quality
-- `DEVELOPMENT_PLAN.md` - implementation order and Definition of Done
-- `TEST_PLAN.md` - overall testing strategy
-- `TESTING_STANDARDS.md` - testing standards and stage-specific expectations
-- `MANUAL_TESTING_PLAN.md` - manual testing workflow
-- `AUTOMATION_TESTING_PLAN.md` - automated testing workflow
-- `TEST_CASE_MANAGEMENT.md` - manual/automation workbook structure and release gate
-- `SECURITY.md` - security and privacy controls
-- `DEVELOPMENT_INSTRUCTIONS.md` - development, AI-coding, testing, verification, and collaboration rules
+---
 
-## AI-agent/project state
-- `AGENTS.md` - repository AI coding-agent rules
-- `PROJECT_CONSTITUTION.md` - compact locked baseline
-- `PROJECT_STATE.md` - current verified project state
-- `CHANGELOG.md` - historical changes
-- `README.md` - repository entry point
+## 2. Architecture, Data & Systems Design
+- [`ARCHITECTURE.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/ARCHITECTURE.md) — High-level modular monolith design, subsystem boundaries, LaTeX engine, and zero-telemetry architecture.
+- [`API_SPEC.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/API_SPEC.md) — Complete REST API contract, request/response models, status codes, and error formats.
+- [`DATABASE_DESIGN.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/DATABASE_DESIGN.md) — PostgreSQL relational schema, constraints, ER diagrams, indexing, and migration rules.
+- [`TECH_STACK.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/TECH_STACK.md) — Frozen V1 technology choices, dependency policies, and rationale.
+- [`ADRs.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/ADRs.md) — Architectural Decision Records documenting core design trade-offs.
+- [`DESIGN_SPEC.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/DESIGN_SPEC.md) — UI/UX neo-brutalist editorial design system, typography, color palette, and layout guidelines.
 
-## QA workbooks
-- `PrivateResume_Manual_Test_Cases.xlsx` - blank module-wise manual test-case template
-- `PrivateResume_Automation_Test_Cases.xlsx` - blank module-wise automation test-case template
+---
 
-## Governance
-The Project Constitution and accepted ADRs control locked decisions. Changes require explicit reopening and documentation.
+## 3. Engineering & Quality Governance
+- [`DEVELOPMENT_PLAN.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/DEVELOPMENT_PLAN.md) — Epics roadmap (Epics 0 through 14 execution status) and Definition of Done.
+- [`TEST_PLAN.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/TEST_PLAN.md) — Master quality assurance strategy and test execution framework.
+- [`TESTING_STANDARDS.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/TESTING_STANDARDS.md) — Layered testing criteria: unit, API integration, E2E, and security verification.
+- [`MANUAL_TESTING_PLAN.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/MANUAL_TESTING_PLAN.md) — Exploratory and manual testing procedures.
+- [`AUTOMATION_TESTING_PLAN.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/AUTOMATION_TESTING_PLAN.md) — Pytest backend and Playwright frontend automation standards.
+- [`TEST_CASE_MANAGEMENT.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/TEST_CASE_MANAGEMENT.md) — QA test case logging governance and release sign-off rules.
+- [`SECURITY.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/SECURITY.md) — Threat models, data privacy constraints, row-level tenant isolation, and security headers.
+- [`DEVELOPMENT_INSTRUCTIONS.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/DEVELOPMENT_INSTRUCTIONS.md) — Local development guide, environment setup, and verification instructions.
+
+---
+
+## 4. Governance & Repository State
+- [`AGENTS.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/AGENTS.md) — Developer & AI pairing rules and constitutional boundary instructions.
+- [`PROJECT_CONSTITUTION.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/PROJECT_CONSTITUTION.md) — Immutable locked baseline principles.
+- [`PROJECT_STATE.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/PROJECT_STATE.md) — Verified milestone tracking document (Epics 0 through 14).
+- [`CHANGELOG.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/CHANGELOG.md) — Platform version history and release notes.
+- [`README.md`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/README.md) — Primary repository landing page, architectural summary, and quick-start instructions.
+
+---
+
+## 5. QA Workbooks & Visual Assets
+- `PrivateResume_Manual_Test_Cases.xlsx` — Module-wise manual test case repository.
+- `PrivateResume_Automation_Test_Cases.xlsx` — Automated test suite verification log.
+- `PrivateResume Dashboard UI Showcase.png` — Architectural design and dashboard UI preview.

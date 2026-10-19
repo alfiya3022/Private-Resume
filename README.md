@@ -2,7 +2,7 @@
 
 > **Privacy-First, Local-First AI-Powered Resume Tailoring & Application Platform**
 
-PrivateResume empowers job seekers to analyze job descriptions, align real candidate evidence deterministically, progressively tailor high-density resumes, compile ATS-compliant PDFs via local LaTeX, validate machine-readability through objective ATS quality gates, and track the entire opportunity lifecycle — **with zero data leakage, zero hallucinations, and zero external telemetry**.
+PrivateResume empowers job seekers to analyze job descriptions, align real candidate evidence deterministically, progressively tailor high-density resumes, compile ATS-compliant PDFs via local LaTeX, and track the entire opportunity lifecycle — **with zero data leakage, zero hallucinations, and zero external telemetry**.
 
 ---
 
@@ -11,7 +11,7 @@ PrivateResume empowers job seekers to analyze job descriptions, align real candi
 1. **AI Recommends · Candidate Approves · System Generates**: The candidate retains absolute veto and editorial control over every bullet, section, and claim.
 2. **Strict Anti-Fabrication Guarantee**: Missing skills are honest gaps, never instructions to invent experience. Resume tailoring only highlights and re-orders verifiable candidate achievements.
 3. **Version Immutability**: Historical resume versions (`v1`, `v2`, `v3`) are permanent, immutable snapshots. Modifying a finalized draft forks a new version to preserve submission history.
-4. **Local-First & Private by Default**: Resume PDFs, SQLite/PostgreSQL records, and local Ollama inference remain on your machine. No third-party LLM APIs receive your sensitive career history.
+4. **Local-First & Private by Default**: Resume PDFs, PostgreSQL records, and local Ollama inference remain strictly on your machine. No third-party LLM APIs receive your sensitive career history.
 5. **Deterministic ATS Compliance**: No fancy multi-column graphics or non-standard tables that confuse applicant tracking systems. Output is compiled through robust LaTeX typography primitives into selectable, machine-parsable PDF streams.
 
 ---
@@ -22,75 +22,81 @@ PrivateResume empowers job seekers to analyze job descriptions, align real candi
 React 18 + Vite (Tailwind CSS Neo-Brutalist UI)
        │
        ▼ (REST API / Bearer JWT)
-FastAPI Modular Monolith (Python 3.11+)
+FastAPI Modular Monolith (Python 3.10+)
   ├── Core Security & Middleware (X-Frame-Options: SAMEORIGIN, CORS lockdown)
   ├── PyMuPDF Engine (Text extraction & ATS extractability audit)
-  ├── Local Ollama Provider (Mistral / Llama 3 with deterministic fallbacks)
+  ├── Local Ollama Provider (Mistral / Llama with deterministic fallbacks)
   ├── Deterministic Match & Scoring Engine (0-100% Estimated Job Match)
-  ├── Subprocess LaTeX Compiler (pdflatex -no-shell-escape)
-  └── PostgreSQL 15+ & SQLAlchemy ORM (Alembic Migrations 001 - 009)
+  ├── Subprocess LaTeX Compiler (pdflatex -halt-on-error -disable-installer -no-shell-escape)
+  └── PostgreSQL 15 (Docker on port 5433) & SQLAlchemy ORM (Alembic Migrations)
 ```
 
 - **Frontend**: React 18, Vite, Tailwind CSS, Lucide React icons.
 - **Backend**: FastAPI, Pydantic V2, SQLAlchemy 2, Alembic, PyMuPDF.
-- **Database**: PostgreSQL (containerized or local) with indexed relational foreign keys.
-- **Inference**: Ollama (native host or container gateway).
+- **Database**: PostgreSQL 15 running in Docker (`private-resume-db` on port `5433`).
+- **Local AI**: Ollama (`mistral` model on port `11434`).
 - **Typesetting**: Native `pdflatex` (MiKTeX on Windows / TeX Live on Linux).
-- **Testing**: Pytest (48 automated tests), Playwright (E2E browser tests), GitHub Actions CI.
+- **Testing**: Pytest (49 automated unit/integration tests), Playwright (E2E browser tests), GitHub Actions CI.
 
 ---
 
 ## 🚀 Quick Start
 
-### Option A: Local Native Development (Recommended for fast iteration)
-
-#### 1. Start PostgreSQL
+### 1. Start PostgreSQL (Docker)
 ```bash
-docker run -d --name privateresume-db -e POSTGRES_DB=private_resume -e POSTGRES_USER=private_resume_user -e POSTGRES_PASSWORD=private_resume_password -p 5433:5432 postgres:15-alpine
+docker compose up -d db
+```
+*(Runs PostgreSQL on port `5433` with persistent volume `postgres_data`)*.
+
+### 2. Start Ollama (Local AI)
+```bash
+ollama serve
+# Ensure mistral model is installed: ollama pull mistral
 ```
 
-#### 2. Backend Setup
+### 3. Backend Setup
 ```bash
 cd backend
 python -m venv venv
 .\venv\Scripts\activate          # Windows (or source venv/bin/activate on Unix)
 pip install -r requirements.txt
-alembic upgrade head             # Runs migrations 001 through 009
-python seed.py                   # Seeds demo account (Alex Morgan)
-uvicorn app.main:app --port 8005 --reload
+alembic upgrade head             # Runs all migrations
+python seed.py                   # Seeds demo account (demo@privateresume.local)
+uvicorn app.main:app --host 127.0.0.1 --port 8005 --reload
 ```
 
-#### 3. Frontend Setup
+### 4. Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev                      # Dev server on http://localhost:5173
 ```
 
-#### 4. Open Application
-Navigate to `http://localhost:5173`.
+### 5. Access the Platform
+Open your browser to `http://localhost:5173`.
 - **Demo Account**: `demo@privateresume.local`
 - **Password**: `Password123!`
-
----
-
-### Option B: Multi-Container Docker Stack
-```bash
-docker compose up --build
-```
-- Frontend UI: `http://localhost:5173`
-- Backend API & Interactive Swagger Docs: `http://localhost:8000/docs`
 
 ---
 
 ## 🧭 Four Core Product Areas
 
 | Product Area | Path | Key Capabilities |
-|---|---|---|
+| :--- | :--- | :--- |
 | **Auth** | `/auth` | JWT bearer authentication, bcrypt password hashing, strict multi-tenant candidate data isolation. |
-| **Profile** | `/profile` | Candidate Master Profile (personal details, skills, experience, projects, education, certifications) + PyMuPDF local master resume parsing. |
-| **Workspace** | `/` (Workflow) | **5-Stage Progressive Tailoring Engine**:<br>1. **Job Intake**: Raw job description ingestion and metadata capture.<br>2. **JD Analysis**: Ollama structured requirements extraction with deterministic fallback.<br>3. **Match Evidence**: 4-category deterministic skill classification & Estimated Match Score (0-100%).<br>4. **Tailor & AI Edit**: Section editing, "Ask AI" contextual refinements under anti-fabrication guards, and version forking.<br>5. **Validate & PDF**: Subprocess LaTeX PDF compilation, inline PDF preview, and 6-point ATS Pre-Flight Quality Gate. |
-| **Applications** | `/applications` | Pipeline tracking dashboard (`draft`, `applied`, `interviewing`, `offer`, `rejected`, `archived`), chronological interview notes, and direct download of the exact submitted PDF snapshot. |
+| **Profile** | `/profile` | Candidate Master Profile (personal details, skills, experience, projects, education, certifications) with inline Edit/Save CRUD + PyMuPDF local master resume parsing + Personal LaTeX Template Package Manager (`.tex` / `.zip`). |
+| **Workspace** | `/` (Workflow) | **5-Stage Progressive Tailoring Engine**:<br>1. **Job Intake**: Opportunity metadata capture, INR compensation formatting (`₹ 12,00,000`), and JD ingestion.<br>2. **JD Analysis**: Ollama structured requirements extraction with deterministic taxonomy fallback; sentence-level Required vs. Preferred skill categorization.<br>3. **Match Evidence**: 4-category deterministic skill classification & Estimated Match Score (0–100%).<br>4. **Tailoring Studio**: Line-by-line inline editing for every section and heading, "Ask AI to Polish" contextual refinements under anti-fabrication guards, and immutable version forking (`v1` $\to$ `v2`).<br>5. **PDF**: Instant compiled PDF document preview, sub-second pdflatex compilation, one-click authenticated download, auto-logging into Applications tracker, and clean multi-cycle workspace reset. |
+| **Applications** | `/applications` | Pipeline tracking board (`saved`, `applied`, `assessment`, `interview`, `rejected`, `offer`, `withdrawn`), chronological interview notes, and direct download of the exact submitted PDF snapshot. |
+
+---
+
+## 📑 Custom LaTeX Template Engine
+
+Candidates can upload their own preferred LaTeX resume designs in the Profile tab:
+- **Supported Formats**: Single `.tex` files or `.zip` packages containing `.cls`, `.sty`, and font assets.
+- **Universal AST Injection**: Intelligently identifies and populates candidate sections across `\begin{rSection}{...}`, `\cvsection{...}`, and standard `\section*{...}` blocks.
+- **Offline Self-Contained Shims**: Automatically injects link (`\providecommand{\href}`) and layout shims to guarantee compilation without missing-package errors or network timeouts.
+- **Instant Fallback**: Reverting to the built-in system default template takes a single click.
 
 ---
 
@@ -98,20 +104,19 @@ docker compose up --build
 
 PrivateResume maintains strict industry-grade layered testing governance with all results tracked in repository test workbooks:
 
-### Automated Test Suite
 ```bash
-# Run complete backend pytest suite (48 tests)
+# Run complete backend pytest suite (49 tests)
 cd backend
-pytest tests/ -v
+pytest tests/ -v -m "not e2e"
 
-# Run Playwright E2E browser tests (Chromium)
+# Run Playwright E2E browser tests
 cd frontend
 npx playwright test
-```
 
-### Verified QA Workbooks
-- [`docs/PrivateResume_Automation_Test_Cases.xlsx`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/PrivateResume_Automation_Test_Cases.xlsx): 53 automated test cases logged and verified.
-- [`docs/PrivateResume_Manual_Test_Cases.xlsx`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/docs/PrivateResume_Manual_Test_Cases.xlsx): 25 manual test cases verified across all modules.
+# Build frontend production bundle
+cd frontend
+npm run build
+```
 
 ---
 
@@ -119,11 +124,6 @@ npx playwright test
 
 - **Zero Telemetry**: No tracking scripts, analytics beacons, or remote cloud logging.
 - **Secure Response Headers**: Enforces `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, and strict CORS policies.
-- **Controlled Subprocess Invocation**: LaTeX is compiled in isolated temporary workspaces with `-interaction=nonstopmode -no-shell-escape` preventing arbitrary shell execution or network requests.
+- **Controlled Subprocess Invocation**: LaTeX is compiled in isolated temporary workspaces with `-interaction=nonstopmode -halt-on-error -disable-installer -no-shell-escape` preventing arbitrary shell execution or network requests.
 - **LaTeX Sanitization**: All user inputs undergo strict character escaping (`&`, `%`, `$`, `#`, `_`, `{`, `}`, `~`, `^`, `\`) before template interpolation.
 - **Human In The Loop**: No automatic submissions or unsupervised AI generation.
-
----
-
-## 📄 License
-PrivateResume is proprietary software developed locally for private candidate use.

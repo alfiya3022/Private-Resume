@@ -7,23 +7,74 @@ from app.schemas.analysis import StructuredJDAnalysis
 
 # Categorized taxonomy for deterministic extraction and validation
 TECH_CATEGORIES = {
-    "languages": ["python", "javascript", "typescript", "java", "c++", "c#", "go", "rust", "ruby", "php", "sql", "html", "css"],
-    "frameworks": ["fastapi", "django", "flask", "react", "next.js", "vue", "angular", "express", "spring boot", "tailwind"],
-    "databases": ["postgresql", "mysql", "mongodb", "redis", "elasticsearch", "sqlite", "dynamodb", "oracle"],
-    "tools": ["docker", "git", "github", "gitlab", "jira", "postman", "linux", "jenkins", "kubernetes", "latex"],
-    "cloud": ["aws", "azure", "gcp", "google cloud", "terraform", "s3", "lambda", "ec2"],
-    "soft_skills": ["communication", "teamwork", "leadership", "problem solving", "collaboration", "analytical", "mentoring"],
+    "languages": [
+        "python", "javascript", "typescript", "java", "c++", "c#", "go", "rust", "ruby", "php", "sql", "html", "css",
+        "t-sql", "tsql", "transact-sql", "pl/sql", "plsql", "bash", "powershell", "shell", "r", "scala", "c"
+    ],
+    "frameworks": [
+        "fastapi", "django", "flask", "react", "next.js", "vue", "angular", "express", "spring boot", "tailwind",
+        ".net", "asp.net", "node.js", "nodejs"
+    ],
+    "databases": [
+        "sql server", "ms sql server", "microsoft sql server", "postgresql", "postgres", "mysql", "mongodb", "redis",
+        "elasticsearch", "sqlite", "dynamodb", "oracle", "oracle database", "mariadb", "cassandra", "snowflake",
+        "bigquery", "redshift", "couchdb", "neo4j", "nosql", "rdbms", "relational database"
+    ],
+    "concepts": [
+        "stored procedures", "stored procedure", "database administration", "dba", "sql backups", "backup and recovery",
+        "data definition", "data manipulation", "data control", "transactional control", "ddl", "dml", "dcl", "tcl",
+        "complex queries", "data queries", "query optimization", "indexing", "triggers", "database views",
+        "etl", "data pipeline", "data warehousing", "data modeling", "database normalization", "database design",
+        "database security", "replication", "sharding", "acid"
+    ],
+    "tools": [
+        "excel", "microsoft excel", "microsoft office", "ms office", "outlook", "microsoft outlook",
+        "power bi", "tableau", "ssis", "ssrs", "ssas", "ftp", "sftp", "secure ftp", "pgp", "encryption",
+        "docker", "git", "github", "gitlab", "jira", "postman", "linux", "jenkins", "kubernetes", "latex",
+        "rest api", "rest apis", "restful", "soap", "ci/cd"
+    ],
+    "cloud": [
+        "aws", "azure", "gcp", "google cloud", "terraform", "s3", "lambda", "ec2"
+    ],
+    "soft_skills": [
+        "communication", "teamwork", "leadership", "problem solving", "collaboration", "analytical", "mentoring",
+        "customer-facing", "client management", "agile", "scrum"
+    ],
 }
 
 CANONICAL_NAMES = {
+    "sql server": "SQL Server", "ms sql server": "Microsoft SQL Server", "microsoft sql server": "Microsoft SQL Server",
+    "stored procedures": "Stored Procedures", "stored procedure": "Stored Procedures",
+    "database administration": "Database Administration", "dba": "Database Administration",
+    "sql backups": "SQL Backups & Recovery", "backup and recovery": "Backup and Recovery",
+    "data definition": "Data Definition (DDL)", "data manipulation": "Data Manipulation (DML)",
+    "data control": "Data Control (DCL)", "transactional control": "Transactional Control (TCL)",
+    "ddl": "DDL", "dml": "DML", "dcl": "DCL", "tcl": "TCL",
+    "complex queries": "Complex SQL Queries", "data queries": "SQL Queries",
+    "query optimization": "Query Optimization", "indexing": "Database Indexing",
+    "triggers": "Database Triggers", "database views": "Database Views",
+    "microsoft office": "Microsoft Office", "ms office": "Microsoft Office",
+    "excel": "Microsoft Excel", "microsoft excel": "Microsoft Excel",
+    "outlook": "Microsoft Outlook", "microsoft outlook": "Microsoft Outlook",
+    "ftp": "FTP / SFTP", "sftp": "FTP / SFTP", "secure ftp": "Secure FTP", "pgp": "PGP Encryption",
+    "encryption": "Data Encryption", "power bi": "Power BI", "tableau": "Tableau",
+    "ssis": "SSIS", "ssrs": "SSRS", "ssas": "SSAS", "etl": "ETL",
+    "data pipeline": "Data Pipelines", "data warehousing": "Data Warehousing",
+    "t-sql": "T-SQL", "tsql": "T-SQL", "transact-sql": "Transact-SQL",
+    "pl/sql": "PL/SQL", "plsql": "PL/SQL", "sql": "SQL",
+    "postgresql": "PostgreSQL", "postgres": "PostgreSQL", "mysql": "MySQL", "oracle": "Oracle",
+    "oracle database": "Oracle Database", "sqlite": "SQLite", "mongodb": "MongoDB", "redis": "Redis",
     "python": "Python", "javascript": "JavaScript", "typescript": "TypeScript", "java": "Java",
-    "c++": "C++", "c#": "C#", "go": "Go", "rust": "Rust", "sql": "SQL", "html": "HTML", "css": "CSS",
-    "fastapi": "FastAPI", "django": "Django", "flask": "Flask", "react": "React", "next.js": "Next.js",
-    "express": "Express", "tailwind": "Tailwind CSS", "postgresql": "PostgreSQL", "mysql": "MySQL",
-    "mongodb": "MongoDB", "redis": "Redis", "sqlite": "SQLite", "docker": "Docker", "git": "Git",
+    "c++": "C++", "c#": "C#", "go": "Go", "rust": "Rust", "html": "HTML", "css": "CSS",
+    "docker": "Docker", "git": "Git", "github": "GitHub", "gitlab": "GitLab",
     "aws": "AWS", "azure": "Azure", "gcp": "GCP", "linux": "Linux", "kubernetes": "Kubernetes",
-    "postman": "Postman", "latex": "LaTeX", "communication": "Communication", "teamwork": "Teamwork",
-    "leadership": "Leadership", "collaboration": "Collaboration", "analytical": "Analytical Thinking",
+    "fastapi": "FastAPI", "django": "Django", "flask": "Flask", "react": "React", "next.js": "Next.js",
+    "express": "Express", "tailwind": "Tailwind CSS", "spring boot": "Spring Boot",
+    "rest api": "REST APIs", "rest apis": "REST APIs", "restful": "REST APIs", "ci/cd": "CI/CD",
+    "postman": "Postman", "latex": "LaTeX", "jenkins": "Jenkins", "jira": "Jira",
+    "customer-facing": "Customer-Facing Experience", "communication": "Communication",
+    "analytical": "Analytical Thinking", "problem solving": "Problem Solving", "teamwork": "Team Collaboration",
+    "agile": "Agile", "scrum": "Scrum",
 }
 
 
@@ -47,6 +98,9 @@ class OllamaProvider:
             "You are an expert technical recruiter analyzing a job description. "
             "Extract structured technical requirements from the JD text below. "
             "Do NOT invent or hallucinate unmentioned skills. "
+            "CRITICAL: Extract 'experience_years' ONLY if explicitly stated in the JD text. "
+            "If no specific years of experience are required or mentioned, set 'experience_years' strictly to 'Not specified'. "
+            "Do NOT assume, default, or invent any years of experience. "
             "Respond ONLY with a valid JSON object matching this schema:\n"
             "{\n"
             '  "required_skills": ["string"],\n'
@@ -65,7 +119,7 @@ class OllamaProvider:
         )
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.base_url}/api/generate",
                     json={
@@ -79,9 +133,9 @@ class OllamaProvider:
                     result_json = response.json()
                     response_text = result_json.get("response", "{}")
                     parsed_dict = json.loads(response_text)
-                    return StructuredJDAnalysis(**parsed_dict)
+                    if parsed_dict.get("required_skills") or parsed_dict.get("responsibilities"):
+                        return StructuredJDAnalysis(**parsed_dict)
         except Exception:
-            # Fall back to deterministic local extraction
             pass
 
         return self.deterministic_jd_extraction(raw_jd_text)
@@ -91,66 +145,101 @@ class OllamaProvider:
         text_lower = text.lower()
         extracted: Dict[str, List[str]] = {cat: [] for cat in TECH_CATEGORIES}
 
+        # Check line by line to determine required vs preferred context
+        raw_lines = [line.strip("-•* ").strip() for line in text.splitlines() if line.strip()]
+        req_set = []
+        pref_set = []
+
+        pref_triggers = ["prefer", "preferred", "nice to have", "good to have", "plus", "optional", "bonus", "advantage"]
+
+        for line in raw_lines:
+            ll = line.lower()
+            is_pref_line = any(trig in ll for trig in pref_triggers)
+            target_list = pref_set if is_pref_line else req_set
+
+            # Check special contextual phrases
+            if "code language" in ll or "coding language" in ll:
+                target_list.append("Coding / Scripting Languages")
+            if "customer-facing" in ll or "customer facing" in ll:
+                target_list.append("Customer-Facing Experience")
+
+            for cat, keywords in TECH_CATEGORIES.items():
+                for kw in keywords:
+                    pattern = rf"\b{re.escape(kw)}\b"
+                    if re.search(pattern, ll):
+                        canonical = CANONICAL_NAMES.get(kw, kw.title())
+                        if canonical not in extracted[cat]:
+                            extracted[cat].append(canonical)
+                        if canonical not in target_list:
+                            target_list.append(canonical)
+
+        # Global sweep for any keywords missed line-by-line
         for cat, keywords in TECH_CATEGORIES.items():
             for kw in keywords:
                 pattern = rf"\b{re.escape(kw)}\b"
                 if re.search(pattern, text_lower):
-                    extracted[cat].append(CANONICAL_NAMES.get(kw, kw.title()))
+                    canonical = CANONICAL_NAMES.get(kw, kw.title())
+                    if canonical not in extracted[cat]:
+                        extracted[cat].append(canonical)
+                    if canonical not in req_set and canonical not in pref_set:
+                        req_set.append(canonical)
 
-        # Separate into required vs preferred based on context
-        required_skills = []
-        preferred_skills = []
-
-        # Find experience years (e.g. "5+ years", "3-5 years")
-        exp_match = re.search(r"(\d+[\+\-]?\s*(?:to\s*\d+)?\s*years?)", text_lower)
-        experience_years = exp_match.group(1).title() if exp_match else "3+ Years"
+        # Extract experience years (e.g. "Minimum 1 to 2 years of experience in SQL", "1-3 years")
+        exp_match = re.search(
+            r"(?:minimum|at least)?\s*(\b\d+\s*(?:to|-)\s*\d+\+?\s*years?(?:\s+of\s+[\w\s]+experience)?)",
+            text_lower
+        )
+        if not exp_match:
+            exp_match = re.search(r"(\b\d+[\+\-]?\s*(?:to|-)?\s*\d*\s*years?(?:\s+of\s+(?:relevant\s+)?experience)?)", text_lower)
+        experience_years = exp_match.group(1).title() if exp_match else "Not specified"
 
         # Split lines for responsibilities and qualifications
-        lines = [line.strip("-•* ").strip() for line in text.splitlines() if line.strip()]
         responsibilities = []
         qualifications = []
 
         is_resp = False
         is_qual = False
 
-        for line in lines:
+        for line in raw_lines:
             line_l = line.lower()
-            if "responsibilit" in line_l or "what you'll do" in line_l or "duties" in line_l:
+            if "responsibilit" in line_l or "what you'll do" in line_l or "duties" in line_l or "role:" in line_l:
                 is_resp = True
                 is_qual = False
                 continue
-            elif "qualification" in line_l or "requirement" in line_l or "what we look for" in line_l:
+            elif "qualification" in line_l or "requirement" in line_l or "what we look for" in line_l or "eligibility" in line_l:
                 is_qual = True
                 is_resp = False
                 continue
 
-            if is_resp and len(line) > 15 and len(responsibilities) < 6:
+            if is_resp and len(line) > 10 and len(responsibilities) < 10:
                 responsibilities.append(line)
-            elif is_qual and len(line) > 15 and len(qualifications) < 6:
+            elif is_qual and len(line) > 10 and len(qualifications) < 10:
                 qualifications.append(line)
 
         # Fallback if specific section headers were absent
         if not responsibilities:
-            responsibilities = [l for l in lines if len(l) > 30][:4]
+            responsibilities = [l for l in raw_lines if len(l) > 25 and not any(q in l.lower() for q in ["degree", "b.tech", "b.e", "qualification"])][:6]
         if not qualifications:
-            qualifications = [l for l in lines if "experience" in l.lower() or "degree" in l.lower()][:3]
+            qualifications = [l for l in raw_lines if any(q in l.lower() for q in ["degree", "b.tech", "b.e", "b.sc", "qualification", "experience", "prefer"])][:5]
 
         # Combine technical skills into required/preferred
-        all_tech = sorted(list(set(
-            extracted["languages"] + extracted["frameworks"] +
-            extracted["databases"] + extracted["cloud"] + extracted["tools"]
-        )))
+        # Ensure SQL and Database Server appear prioritized if in JD
+        req_deduped = []
+        for s in req_set:
+            if s not in req_deduped:
+                req_deduped.append(s)
 
-        # Primary skills are required, secondary are preferred
-        required_skills = all_tech[:6]
-        preferred_skills = all_tech[6:]
+        pref_deduped = []
+        for s in pref_set:
+            if s not in pref_deduped and s not in req_deduped:
+                pref_deduped.append(s)
 
         return StructuredJDAnalysis(
-            required_skills=required_skills,
-            preferred_skills=preferred_skills,
+            required_skills=req_deduped,
+            preferred_skills=pref_deduped,
             languages=sorted(list(set(extracted["languages"]))),
             frameworks=sorted(list(set(extracted["frameworks"]))),
-            databases=sorted(list(set(extracted["databases"]))),
+            databases=sorted(list(set(extracted["databases"] + extracted["concepts"]))),
             tools=sorted(list(set(extracted["tools"]))),
             cloud=sorted(list(set(extracted["cloud"]))),
             responsibilities=responsibilities,
@@ -171,6 +260,8 @@ class OllamaProvider:
             f"Target Section: {section}\n"
             f"Current Content:\n{current_text or 'None'}\n\n"
             f"Candidate Revision Request: {instruction}\n\n"
+            "SPECIAL RULE FOR SUMMARY: Keep the executive summary sharply focused on the specific role, tech stack, and responsibilities demanded by the target job. "
+            "Do NOT summarize the candidate's entire historical career or irrelevant past domains. Tailor directly to the job description.\n\n"
             "Respond ONLY with a valid JSON object matching this schema:\n"
             '{\n  "suggested_text": "string",\n  "explanation": "string"\n}'
         )

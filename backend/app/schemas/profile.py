@@ -35,6 +35,13 @@ class ProjectCreate(ProjectBase):
     pass
 
 
+class ProjectResponse(ProjectBase):
+    id: int
+    profile_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ProjectUpdate(BaseModel):
     title: Optional[str] = None
     role: Optional[str] = None
@@ -44,13 +51,6 @@ class ProjectUpdate(BaseModel):
     url: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-
-
-class ProjectResponse(ProjectBase):
-    id: int
-    profile_id: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class ExperienceBase(BaseModel):
@@ -68,6 +68,13 @@ class ExperienceCreate(ExperienceBase):
     pass
 
 
+class ExperienceResponse(ExperienceBase):
+    id: int
+    profile_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ExperienceUpdate(BaseModel):
     company: Optional[str] = None
     title: Optional[str] = None
@@ -77,13 +84,6 @@ class ExperienceUpdate(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     is_current: Optional[bool] = None
-
-
-class ExperienceResponse(ExperienceBase):
-    id: int
-    profile_id: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class EducationBase(BaseModel):
@@ -106,6 +106,15 @@ class EducationResponse(EducationBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EducationUpdate(BaseModel):
+    institution: Optional[str] = None
+    degree: Optional[str] = None
+    field_of_study: Optional[str] = None
+    grade: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
 class CertificationBase(BaseModel):
     name: str
     issuer: str
@@ -122,6 +131,13 @@ class CertificationResponse(CertificationBase):
     profile_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CertificationUpdate(BaseModel):
+    name: Optional[str] = None
+    issuer: Optional[str] = None
+    issue_date: Optional[str] = None
+    credential_url: Optional[str] = None
 
 
 class ProfileUpdate(BaseModel):

@@ -1,5 +1,5 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -11,17 +11,22 @@ from app.schemas.profile import (
     SkillResponse,
     ProjectCreate,
     ProjectResponse,
+    ProjectUpdate,
     ExperienceCreate,
     ExperienceResponse,
+    ExperienceUpdate,
     EducationCreate,
     EducationResponse,
+    EducationUpdate,
     CertificationCreate,
     CertificationResponse,
+    CertificationUpdate,
     GitHubExtractRequest,
     GitHubExtractResponse,
 )
 from app.services.profile_service import profile_service
 from app.services.github_service import github_service
+from app.services.latex_service import latex_service
 
 router = APIRouter()
 
@@ -94,6 +99,22 @@ def add_project(
     return profile_service.add_project(db, current_user.id, project_in)
 
 
+@router.put("/projects/{project_id}", response_model=ProjectResponse)
+def update_project(
+    project_id: int,
+    project_in: ProjectUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update a project in candidate profile."""
+    updated = profile_service.update_project(db, current_user.id, project_id, project_in)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+    return updated
+
+
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
     project_id: int,
@@ -117,6 +138,22 @@ def add_experience(
 ):
     """Add work experience entry."""
     return profile_service.add_experience(db, current_user.id, exp_in)
+
+
+@router.put("/experiences/{exp_id}", response_model=ExperienceResponse)
+def update_experience(
+    exp_id: int,
+    exp_in: ExperienceUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update work experience entry in candidate profile."""
+    updated = profile_service.update_experience(db, current_user.id, exp_id, exp_in)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Experience not found"
+        )
+    return updated
 
 
 @router.delete("/experiences/{exp_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -144,6 +181,22 @@ def add_education(
     return profile_service.add_education(db, current_user.id, edu_in)
 
 
+@router.put("/educations/{edu_id}", response_model=EducationResponse)
+def update_education(
+    edu_id: int,
+    edu_in: EducationUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update education record in candidate profile."""
+    updated = profile_service.update_education(db, current_user.id, edu_id, edu_in)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Education record not found"
+        )
+    return updated
+
+
 @router.delete("/educations/{edu_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_education(
     edu_id: int,
@@ -169,6 +222,22 @@ def add_certification(
     return profile_service.add_certification(db, current_user.id, cert_in)
 
 
+@router.put("/certifications/{cert_id}", response_model=CertificationResponse)
+def update_certification(
+    cert_id: int,
+    cert_in: CertificationUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update certification record in candidate profile."""
+    updated = profile_service.update_certification(db, current_user.id, cert_id, cert_in)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Certification not found"
+        )
+    return updated
+
+
 @router.delete("/certifications/{cert_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_certification(
     cert_id: int,
@@ -181,3 +250,36 @@ def delete_certification(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Certification not found"
         )
+
+
+# Custom LaTeX Template Endpoints
+@router.post("/template")
+async def upload_custom_template(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Uploads a custom LaTeX template (.tex or .zip package) for candidate PDF compilation."""
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
+    return latex_service.save_user_template(current_user.id, file.filename, content)
+
+
+@router.get("/template")
+def get_custom_template(
+    current_user: User = Depends(get_current_user),
+):
+    """Retrieves metadata of the candidate's active custom LaTeX template."""
+    return latex_service.get_user_template_info(current_user.id)
+
+
+@router.delete("/template")
+def delete_custom_template(
+    current_user: User = Depends(get_current_user),
+):
+    """Deletes custom template and reverts to system default Modern Editorial."""
+    latex_service.delete_user_template(current_user.id)
+    return {"status": "success", "message": "Reverted to default LaTeX template."}

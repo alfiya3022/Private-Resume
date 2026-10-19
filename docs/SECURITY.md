@@ -1,56 +1,108 @@
-# PrivateResume - Security and Privacy
+# PrivateResume - Security & Privacy Specification
 
-## Security objective
-Protect candidate PII, resumes, generated documents, AI analysis, and application history from unauthorized access or accidental disclosure.
+**Objective**: Protect candidate Personally Identifiable Information (PII), uploaded resumes, tailored career snapshots, AI analysis payloads, and application histories from unauthorized disclosure, data leakage, or malicious execution.
 
-## Authentication
-- Passwords must be securely hashed; plaintext passwords are never stored.
-- Protected endpoints require authenticated identity.
-- Token/session handling must be secure and configurable.
+---
 
-## Authorization
-Every user-owned resource must be checked against the authenticated user. Never trust resource IDs alone.
+## 1. Security Architecture & Threat Model
 
-## User isolation invariant
-User A must not be able to read, edit, delete, or download User B's profile, resume, job, analysis, tailored resume, artifact, or application.
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                      Client Browser                         │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ HTTPS / HTTP + Security Headers
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│              SecurityHeadersMiddleware                      │
+│  - X-Content-Type-Options: nosniff                          │
+│  - X-Frame-Options: SAMEORIGIN                              │
+│  - X-XSS-Protection: 1; mode=block                          │
+│  - Strict CORS Origin Validation                            │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│            Authentication & Authorization Layer             │
+│  - OAuth2 Bearer JWT Token Validation                       │
+│  - get_current_active_user Dependency Injection             │
+│  - Row-Level Tenant Isolation Enforcement                   │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+        ┌──────────────────────┼──────────────────────┐
+        ▼                      ▼                      ▼
+┌──────────────┐       ┌──────────────┐       ┌──────────────┐
+│  PostgreSQL  │       │ Isolated     │       │ Local Ollama │
+│  (Parametric │       │ Temp Build   │       │ Subsystem    │
+│   SQLAlchemy │       │ Directory    │       │ (Local Port  │
+│   Queries)   │       │ (pdflatex)   │       │  11434 Only) │
+└──────────────┘       └──────────────┘       └──────────────┘
+```
 
-## File upload security
-- Validate MIME/type and actual file format.
-- Enforce configured size limits.
-- Store uploads outside executable code directories.
-- Generate safe storage names rather than trusting user filenames.
-- Prevent path traversal.
-- Validate LaTeX ZIP contents before extraction.
+---
 
-## Resume and PII privacy
-- Avoid logging resume text, JD text, contact details, and generated resume contents unless explicitly required and sanitized.
-- Keep AI processing local by default through Ollama.
-- Preserve transparency about where data is processed and stored.
+## 2. Authentication & Identity Controls
+1. **Password Hashing**: Passwords are hashed using standard `bcrypt` with salt rounds via `passlib`. Plaintext passwords are never written to disk or logged.
+2. **Stateless JWT Tokens**: Authentication uses HMAC-SHA256 (`HS256`) signed JSON Web Tokens with configurable expiration (`ACCESS_TOKEN_EXPIRE_MINUTES`).
+3. **Protected Endpoint Gates**: All private endpoints enforce authentication through FastAPI's `Depends(get_current_active_user)`.
 
-## AI safety and factuality
-- AI output is not authoritative.
-- Unsupported claims must not be fabricated.
-- Structured AI output must be validated before persistence.
-- Human approval is required before final generation.
+---
 
-## Secrets and configuration
-- Secrets live in environment configuration, not source control.
-- `.env` is ignored by Git.
-- `.env.example` contains variable names and safe examples only.
+## 3. Row-Level Multi-Tenant Data Isolation
+- **Tenant Integrity**: Every profile, master resume, job opportunity, requirement analysis, match result, tailored resume, compiled artifact, and application record contains a non-nullable `user_id` foreign key.
+- **Invariable Authorization Filter**:
+  ```python
+  # Standard pattern across all queries:
+  entity = db.query(Model).filter(Model.id == entity_id, Model.user_id == current_user.id).first()
+  if not entity:
+      raise HTTPException(status_code=404, detail="Entity not found or access unauthorized")
+  ```
+- **Zero Cross-Tenant Leakage**: Attempting to query or manipulate another user's ID yields a strict `404 Not Found` to prevent entity enumeration.
 
-## Database security
-- Use parameterized ORM/database operations.
-- Enforce foreign keys and constraints.
-- Use transactions for multi-record operations.
+---
 
-## Logging and observability
-Logs should include useful operational context such as request IDs and error categories without exposing sensitive resume contents or credentials.
+## 4. File Upload & Ingestion Hardening
+1. **MIME & Extension Validation**: Master resume uploads accept `.pdf` only; LaTeX template package manager accepts `.tex` files or `.zip` packages exclusively.
+2. **Safe Filename Generation**: Uploaded files are renamed using secure UUID prefixes (e.g. `e4cabc7b_Alfiya_resume.pdf`) rather than trusting user-supplied paths, preventing path traversal attacks (`../`).
+3. **Storage Segregation**: User files are stored in `backend/storage/` outside of executable code and frontend public web directories.
+4. **ZIP Archive Sanitization**: Template `.zip` packages are inspected upon extraction to prevent zip-slip directory traversal vulnerabilities.
 
-## Error handling
-Return user-safe errors. Do not expose stack traces, SQL details, filesystem paths, tokens, or internal prompts to clients.
+---
 
-## Local-first does not mean automatically safe
-Running locally reduces third-party exposure for the default AI path, but OS access, local backups, malware, file permissions, and browser security still matter.
+## 5. LaTeX Subprocess Sandboxing & Sanitization
+Subprocess execution of `pdflatex` carries potential risks if unconstrained. PrivateResume hardens compilation through multiple layers:
 
-## Security review checklist
-Authentication, authorization, file validation, secret handling, PII logging review, path traversal checks, prompt/input validation, artifact access control, and error leakage review.
+### 5.1 Subprocess Execution Parameters
+```python
+cmd = [
+    "pdflatex",
+    "-interaction=nonstopmode",  # Never prompt interactively
+    "-halt-on-error",            # Abort immediately on syntax error
+    "-disable-installer",        # Prevent MiKTeX from hanging on CTAN network calls
+    "-no-shell-escape",          # Strictly forbid external shell binary execution
+    f"{output_base_name}.tex",
+]
+```
+- `-no-shell-escape`: Completely disables the `\write18{...}` TeX primitive, making it impossible to invoke host shell commands through uploaded templates.
+- `-disable-installer`: Forbids automatic network package downloading from untrusted remote mirrors.
+- Isolated Temporary Directory: Compilation executes inside `tempfile.TemporaryDirectory()`. Generated temporary files (`.aux`, `.log`, `.fls`) are immediately purged after PDF output extraction.
+
+### 5.2 Input Sanitization & Escaping
+All dynamic candidate strings (names, companies, bullets, summaries) pass through [`latex_escape()`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/backend/app/services/latex_service.py#L25-L45) before interpolation:
+- Reserved characters (`&`, `%`, `$`, `#`, `_`, `{`, `}`) are escaped with backslashes (`\&`, `\%`, etc.).
+- Special characters (`~`, `^`, `\`) are transformed into safe typesetting primitives (`\textasciitilde{}`, `\textasciicircum{}`, `\textbackslash{}`).
+
+---
+
+## 6. Data Privacy & Zero External Telemetry
+- **Local AI Execution**: Ollama inference runs entirely on the host machine (`http://localhost:11434`). No prompts, candidate resumes, or job descriptions are transmitted to third-party APIs (OpenAI, Anthropic, or cloud aggregators).
+- **Zero Third-Party Trackers**: No Google Analytics, telemetry beacons, Sentry cloud reporting, or external font trackers.
+- **Sensitive Log Suppression**: Logging configuration suppresses request bodies, JWT tokens, and resume bullets from standard server stdout.
+
+---
+
+## 7. Security Headers & Network Hygiene
+FastAPI injects defensive HTTP response headers on every request:
+- `X-Content-Type-Options: nosniff` — Prevents MIME-sniffing exploits.
+- `X-Frame-Options: SAMEORIGIN` — Mitigates clickjacking and framing attacks.
+- `X-XSS-Protection: 1; mode=block` — Enables browser cross-site scripting filters.
+- **Strict CORS Policy**: Restricted to authorized development origins (`localhost:5173`, `127.0.0.1:5173`). Wildcard `*` origins are strictly forbidden.

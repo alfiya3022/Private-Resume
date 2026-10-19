@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
 from app.core.database import get_db
@@ -91,11 +91,37 @@ def get_resume_artifacts(
     )
 
 
+from fastapi import Request, Query
+from app.core.security import decode_access_token
+from app.services.auth_service import auth_service
+
+
+def resolve_user_for_pdf(
+    request: Request,
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+) -> User:
+    auth_token = token
+    if not auth_token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            auth_token = auth_header.split(" ", 1)[1]
+    if not auth_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    payload = decode_access_token(auth_token)
+    if not payload or not payload.get("sub"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    user = auth_service.get_by_id(db, int(payload["sub"]))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+
 @router.get("/{resume_id}/pdf")
 def preview_or_download_pdf(
     resume_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(resolve_user_for_pdf),
 ):
     """Stream generated PDF for inline browser preview or direct download."""
     tailoring_service.get_resume_or_404(db, current_user, resume_id)
@@ -108,6 +134,25 @@ def preview_or_download_pdf(
         )
         .first()
     )
+    if not artifact or not Path(artifact.file_path).exists():
+        # Automatically compile on-the-fly if not already generated
+        try:
+            latex_service.generate_resume_artifacts(db, current_user, resume_id)
+            artifact = (
+                db.query(ResumeArtifact)
+                .filter(
+                    ResumeArtifact.tailored_resume_id == resume_id,
+                    ResumeArtifact.user_id == current_user.id,
+                    ResumeArtifact.artifact_type == "pdf",
+                )
+                .first()
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to compile PDF: {str(e)}",
+            )
+
     if not artifact or not Path(artifact.file_path).exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

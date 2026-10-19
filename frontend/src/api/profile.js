@@ -35,6 +35,13 @@ export const profileApi = {
     });
   },
 
+  async updateProject(projectId, projectData) {
+    return api.request(`/profile/projects/${projectId}`, {
+      method: 'PUT',
+      body: JSON.stringify(projectData),
+    });
+  },
+
   async deleteProject(projectId) {
     return api.request(`/profile/projects/${projectId}`, {
       method: 'DELETE',
@@ -56,6 +63,13 @@ export const profileApi = {
     });
   },
 
+  async updateExperience(expId, expData) {
+    return api.request(`/profile/experiences/${expId}`, {
+      method: 'PUT',
+      body: JSON.stringify(expData),
+    });
+  },
+
   async deleteExperience(expId) {
     return api.request(`/profile/experiences/${expId}`, {
       method: 'DELETE',
@@ -66,6 +80,13 @@ export const profileApi = {
   async addEducation(eduData) {
     return api.request('/profile/educations', {
       method: 'POST',
+      body: JSON.stringify(eduData),
+    });
+  },
+
+  async updateEducation(eduId, eduData) {
+    return api.request(`/profile/educations/${eduId}`, {
+      method: 'PUT',
       body: JSON.stringify(eduData),
     });
   },
@@ -84,8 +105,49 @@ export const profileApi = {
     });
   },
 
+  async updateCertification(certId, certData) {
+    return api.request(`/profile/certifications/${certId}`, {
+      method: 'PUT',
+      body: JSON.stringify(certData),
+    });
+  },
+
   async deleteCertification(certId) {
     return api.request(`/profile/certifications/${certId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Custom LaTeX Template
+  async getTemplate() {
+    return api.request('/profile/template');
+  },
+
+  async uploadTemplate(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = api.getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${api.baseUrl}/profile/template`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.detail || 'Failed to upload template');
+    }
+    return data;
+  },
+
+  async deleteTemplate() {
+    return api.request('/profile/template', {
       method: 'DELETE',
     });
   },

@@ -1,97 +1,139 @@
-# PrivateResume - Architecture
+# PrivateResume - Architecture Specification
 
-## Architectural style
-PrivateResume uses a modular monolith. The backend is one deployable application with internally separated modules.
+**Style**: Modular Monolith  
+**Posture**: Local-First, Privacy-First, Zero External Telemetry  
+**Stack**: React 18 (Vite) + FastAPI (Python 3.10+) + PostgreSQL 15 + Ollama (`mistral`) + LaTeX (MiKTeX/pdfTeX)
 
-### Why
-The product has several related domains but does not need microservice-level distribution. A modular monolith provides separation of concerns, simpler local development, easier transactions, and lower operational complexity.
+---
 
-### Why not microservices
-Microservices would introduce service-to-service networking, deployment coordination, distributed failure handling, and more infrastructure without a demonstrated V1 requirement.
+## 1. Architectural Style & Rationale
 
-## High-level architecture
+PrivateResume is structured as a **Modular Monolith**. The application operates as a single deployable backend service organized into strictly separated internal domain modules.
+
+### Why a Modular Monolith?
+- **Domain Cohesion**: The platform manages tightly interrelated entities (Candidate Profile, Master Resumes, Job Opportunities, Tailored Versions, Artifacts, and Applications) that benefit from ACID database transactions and shared relational schemas.
+- **Local-First Simplicity**: Minimizes operational friction. A candidate can run the entire system on a personal machine without managing service discovery, distributed tracing, network latency, or message brokers.
+- **Zero Telemetry**: Sensitive resume data, contact info, and employer histories remain strictly on the user's host machine.
+
+### Explicit Non-Goals
+No distributed microservices, no Kafka/RabbitMQ message brokers, no Redis caching, and no external AI API wrappers (OpenAI, Anthropic).
+
+---
+
+## 2. High-Level System Architecture
+
 ```text
-React frontend
-      | HTTP/REST
-      v
-FastAPI backend
-      |
-      +--> PostgreSQL
-      +--> Ollama (local)
-      +--> Local file storage
-      +--> LaTeX compiler
+┌─────────────────────────────────────────────────────────────┐
+│                      Client Browser                         │
+│             React 18 + Vite + Tailwind CSS                  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ HTTP / REST (JWT Bearer)
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  FastAPI Backend Service                    │
+│   (SecurityHeadersMiddleware, Auth Router, Module Routers)  │
+├──────────────────────────────┬──────────────────────────────┤
+│      Business Services       │       Engine Pipelines       │
+│  - AnalysisService           │  - PyMuPDF Ingestion Engine  │
+│  - MatchingService           │  - Deterministic JD Scraper  │
+│  - TailoringService          │  - LaTeX AST Injector        │
+│  - ApplicationService        │  - pdflatex Subprocess       │
+└──────┬────────────────┬──────┴───────────────┬──────────────┘
+       │                │                      │
+       ▼                ▼                      ▼
+┌──────────────┐ ┌──────────────┐ ┌───────────────────────────┐
+│  PostgreSQL  │ │    Ollama    │ │     Local Filesystem      │
+│  (Docker on  │ │ (Local Port  │ │  (backend/storage: PDFs,  │
+│  Port 5433)  │ │    11434)    │ │   resumes, .tex templates)│
+└──────────────┘ └──────────────┘ └───────────────────────────┘
 ```
 
-The frontend never directly connects to PostgreSQL or Ollama.
+**Key Boundary Rule**: The React frontend **never** connects directly to PostgreSQL or Ollama. All interactions flow through the FastAPI backend API contract under `/api/v1`.
 
-## Layered backend
+---
+
+## 3. End-to-End Processing Pipeline
+
+The platform follows a unidirectional, multi-stage workflow:
+
 ```text
-HTTP route / router
-        |
-        v
-Application/business service
-        |
-        +--> database
-        +--> AI service
-        +--> file storage
-        +--> LaTeX / validation
+[Stage 1: Ingestion]
+Master PDF ──► PyMuPDF ──► Raw Text ──► Section Detection ──► PostgreSQL Candidate Profile
+
+[Stage 2: JD Analysis]
+Raw JD Text ──► Ollama + Deterministic Taxonomy ──► Structured Requirements (Required, Preferred, Exp)
+
+[Stage 3: Evidence Matching]
+Profile Facts + Structured JD ──► Deterministic Classifier ──► 4-Category Evidence Matrix + Match %
+
+[Stage 4: Progressive Tailoring]
+Profile Truth + Evidence Matrix ──► Tailored Draft ──► Line-by-Line CRUD + AI Section Refine
+
+[Stage 5: Compilation & Persistence]
+Tailored Resume JSON ──► LaTeX AST Injection ──► pdflatex Sandbox ──► Output PDF & Tex Artifact
+
+[Stage 6: Application Pipeline]
+PDF Downloaded ──► Auto-log Application Tracker ──► Clean Workspace Isolation Reset
 ```
 
-## Backend module responsibilities
-- auth: authentication and current-user access
-- profile: structured candidate data
-- resumes: master resume upload and management
-- jobs: job and JD lifecycle
-- analysis: JD analysis and match analysis orchestration
-- tailoring: tailored resume generation and editing
-- applications: application tracking
-- ai service: provider abstraction and Ollama integration
-- resume service: parsing and source resume workflows
-- matching service: primarily deterministic classification and scoring
-- latex service: template processing and PDF compilation
-- validation service: final document checks
-- storage service: local file persistence abstraction
+---
 
-## AI boundary
-The application talks to an AI service abstraction rather than directly to Ollama from every feature.
+## 4. Module Responsibilities & Domain Boundaries
 
-Conceptual interface:
-```text
-AIService
-  analyze_jd()
-  analyze_resume()
-  generate_match_analysis()
-  tailor_resume()
-  edit_resume_section()
-        |
-        v
-OllamaProvider
+| Module | Core Responsibility | Persistence |
+| :--- | :--- | :--- |
+| **`auth`** | User registration, login, Bcrypt hashing, JWT issuance and token validation. | `users` table |
+| **`profile`** | Structured source of truth for candidate data (experience, projects, skills, education). | `candidate_profiles`, `skills`, `experiences`, `projects`, `educations`, `certifications` |
+| **`resumes`** | Ingestion, validation, and storage of source PDF resumes using PyMuPDF. | `master_resumes` table, `backend/storage/resumes` |
+| **`jobs`** | Target opportunity intake, compensation tracking, and status lifecycle. | `jobs` table |
+| **`analysis`** | Hybrid JD extraction: Ollama LLM structured prompt with deterministic fallback taxonomy. | `job_requirements` table |
+| **`matching`** | Primarily deterministic evidence matching; calculates Estimated Job Match. | `match_analyses` table |
+| **`tailoring`** | Orchestrates versioned drafts (`v1`, `v2`, `v3`) and line-level inline editing. | `tailored_resumes` table |
+| **`latex`** | Custom template management, AST injection, subprocess compilation, and artifact generation. | `resume_artifacts` table, `backend/storage/artifacts` |
+| **`applications`**| Pipeline tracking (Applied, Interview, Offer) linked to exact resume version. | `applications` table |
+
+---
+
+## 5. AI Service Boundary & Constitutional Anti-Fabrication
+
+The AI subsystem operates within strict constitutional guardrails:
+1. **Candidate Profile As Sovereign Truth**:
+   The candidate's verified profile is the sole ground of truth. Missing skills identified during JD matching are treated as developmental gaps—**never** as instructions to fabricate experience.
+2. **Deterministic Precedence**:
+   Evaluation metrics (Match %, missing skills, qualification checks) are calculated deterministically. AI is restricted to language comprehension and phrasing enhancement.
+3. **Structured Boundary Abstraction**:
+   All AI communication passes through `OllamaProvider` using strict JSON schemas. If Ollama is unreachable or times out, the system seamlessly falls back to high-accuracy deterministic extraction.
+
+---
+
+## 6. Hardened LaTeX Compilation Engine
+
+The compilation engine in [`latex_service.py`](file:///c:/Users/alfiy/Documents/Downloads/Private%20Resume/backend/app/services/latex_service.py) enforces security, offline resilience, and template compatibility:
+
+### 6.1 Subprocess Security Flags
+```python
+cmd = [
+    "pdflatex",
+    "-interaction=nonstopmode",  # Never prompt interactively
+    "-halt-on-error",            # Abort immediately on syntax error (zero hang)
+    "-disable-installer",        # Prevent MiKTeX from hanging on CTAN network calls
+    "-no-shell-escape",          # Strictly forbid execution of external shell binaries
+    f"{output_base_name}.tex",
+]
 ```
 
-### Why
-Provider isolation allows model/provider changes later without spreading Ollama-specific code across the application.
+### 6.2 Self-Contained Shims & Resilience
+- Custom templates referencing `\usepackage{hyperref}` or `\usepackage[parfill]{parskip}` automatically receive self-contained native TeX link macros (`\providecommand{\href}`) and spacing definitions. This ensures 100% offline compilation without missing package failures.
 
-## Deterministic vs AI responsibilities
-Deterministic systems handle deterministic tasks such as persistence, validation rules, versioning, access control, file rules, and defined matching logic. AI handles language understanding and generation where appropriate.
+### 6.3 Universal Template AST Injection
+- Supports both standard LaTeX document structures (`\section*{...}`) and custom class environments (e.g. `\begin{rSection}{...}` in FAANGpath and Trey Hunner templates).
+- Automatically substitutes candidate metadata into `\name{...}`, `\author{...}`, and `\address{...}` headers.
 
-## Matching model
-Matching is primarily deterministic after structured extraction. AI may support language interpretation and explanation but should not be the only authority for a match result.
+---
 
-## Document pipeline
-```text
-Master PDF -> PyMuPDF -> raw text -> section detection -> structured candidate data
+## 7. Multi-Cycle Workspace Isolation
 
-Approved resume content -> LaTeX template -> compiler -> PDF artifact -> validation
-```
-
-## Versioning invariant
-Historical tailored resumes are immutable snapshots. Changes to the master profile must not rewrite historical submitted resumes.
-
-## User isolation invariant
-Every user-owned resource must be authorized against the authenticated user.
-
-## Storage
-Local filesystem is the V1 file storage mechanism. Cloud object storage is a future option, not a V1 requirement.
-
-## Deployment posture
-The product is local-first and cloud-capable later. Local AI processing is the default design intent.
+To prevent previous application drafts from spilling over into new intake cycles:
+1. **On PDF Download**: The opportunity is automatically registered in the Applications pipeline, updating its job status to `applied`.
+2. **State Erasure**: The workspace draft state is wiped cleanly, resetting the form to Stage 1.
+3. **Clean Intake Query**: `jobsApi.listJobs('active')` only loads unapplied jobs, ensuring every new intake starts with a blank canvas.

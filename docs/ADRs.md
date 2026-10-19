@@ -107,3 +107,30 @@
 **Decision:** Maintain two module-wise test-case workbooks: one for manual testing and one for automation. Populate them as features are completed, tested, reviewed, and merged.
 
 **Reason:** Separating manual and automation evidence makes coverage, execution history, and QA contribution easier to demonstrate without mixing test design with implementation code.
+
+## ADR-011 - Personal LaTeX Template Package Manager with Universal AST Injection
+**Status:** Accepted
+
+**Context:** Candidates have preferred LaTeX templates (e.g. FAANGpath, Trey Hunner, Modern CV) and should not be forced into a single rigid document structure.
+
+**Decision:** Provide a Template Package Manager in Candidate Profile accepting `.tex` files or `.zip` archives. Use universal regex AST injection that identifies and populates candidate sections across `\begin{rSection}`, `\cvsection`, and standard `\section*` blocks. Support instant one-click fallback to the system default ATS template.
+
+**Reason:** Empowers candidates with personalized resume aesthetics while maintaining 100% deterministic, automated content tailoring.
+
+## ADR-012 - Hardened Offline Subprocess LaTeX Compilation
+**Status:** Accepted
+
+**Context:** Running `pdflatex` on user-uploaded templates can encounter missing packages, syntax errors, or prompt hangs if MiKTeX attempts to query remote CTAN servers over the network.
+
+**Decision:** Execute `pdflatex` exclusively with `-interaction=nonstopmode -halt-on-error -disable-installer -no-shell-escape` inside an isolated temporary directory. Automatically inject native TeX link macros (`\providecommand{\href}`) and paragraph spacing shims into templates.
+
+**Reason:** Guarantees sub-second compilation, prevents network-induced timeouts, and ensures safe execution with zero arbitrary command execution privileges.
+
+## ADR-013 - Multi-Cycle Workspace Isolation with Automatic Application Pipeline Logging
+**Status:** Accepted
+
+**Context:** Completing an application cycle should not leave stale draft state or overwrite prior tailored versions when starting a new intake.
+
+**Decision:** When a candidate downloads a tailored PDF in Stage 5, the system automatically registers the application in the Applications pipeline (status `applied`) and resets the workspace draft state to Stage 1. Filter active workspace queries by `status=active` to prevent applied jobs from persisting in active draft views.
+
+**Reason:** Enforces a clean slate for subsequent job applications and eliminates cognitive clutter.

@@ -89,9 +89,54 @@ export default function ProfilePage({ currentUser }) {
     is_current: false,
   });
 
+  // Editing existing project state
+  const [editingProjectId, setEditingProjectId] = useState(null);
+  const [editProjectForm, setEditProjectForm] = useState({
+    title: '',
+    role: '',
+    technologies: '',
+    url: '',
+    description: '',
+    bullets: '',
+  });
+
+  // Editing existing experience state
+  const [editingExpId, setEditingExpId] = useState(null);
+  const [editExpForm, setEditExpForm] = useState({
+    company: '',
+    title: '',
+    location: '',
+    start_date: '',
+    end_date: '',
+    is_current: false,
+    description: '',
+    bullets: '',
+  });
+
+  // Custom template packages state
+  const [templateInfo, setTemplateInfo] = useState(null);
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
+
   // Education & Certification state
   const [newEducation, setNewEducation] = useState({ institution: '', degree: '', field_of_study: '', grade: '' });
+  const [editingEduId, setEditingEduId] = useState(null);
+  const [editEduForm, setEditEduForm] = useState({
+    institution: '',
+    degree: '',
+    field_of_study: '',
+    grade: '',
+    start_date: '',
+    end_date: '',
+  });
+
   const [newCert, setNewCert] = useState({ name: '', issuer: '', issue_date: '' });
+  const [editingCertId, setEditingCertId] = useState(null);
+  const [editCertForm, setEditCertForm] = useState({
+    name: '',
+    issuer: '',
+    issue_date: '',
+    credential_url: '',
+  });
 
   useEffect(() => {
     if (currentUser) {
@@ -137,6 +182,12 @@ export default function ProfilePage({ currentUser }) {
       if (!profData.headline && !profData.summary && !profData.location && !profData.phone) {
         setIsEditingPersonal(true);
       }
+
+      // Load active custom template info
+      try {
+        const tpl = await profileApi.getTemplate();
+        setTemplateInfo(tpl);
+      } catch (e) {}
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to load profile data.' });
     } finally {
@@ -324,6 +375,46 @@ export default function ProfilePage({ currentUser }) {
     }
   };
 
+  const handleStartEditProject = (proj) => {
+    setEditingProjectId(proj.id);
+    setEditProjectForm({
+      title: proj.title || '',
+      role: proj.role || '',
+      technologies: (proj.technologies || []).join(', '),
+      url: proj.url || '',
+      description: proj.description || '',
+      bullets: (proj.bullets || []).join('\n'),
+    });
+  };
+
+  const handleSaveEditProject = async (e) => {
+    e.preventDefault();
+    if (!editProjectForm.title.trim()) return;
+    try {
+      const payload = {
+        title: editProjectForm.title.trim(),
+        role: editProjectForm.role.trim() || null,
+        technologies: editProjectForm.technologies
+          ? editProjectForm.technologies.split(',').map((s) => s.trim()).filter(Boolean)
+          : [],
+        description: editProjectForm.description.trim(),
+        bullets: editProjectForm.bullets
+          ? editProjectForm.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
+          : [],
+        url: editProjectForm.url.trim() || null,
+      };
+      await profileApi.updateProject(editingProjectId, payload);
+      setEditingProjectId(null);
+      await loadProfileAndResumes();
+      setValidationPopup({
+        title: 'Project Saved',
+        message: `Changes to "${payload.title}" have been successfully saved.`,
+      });
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Failed to update project.' });
+    }
+  };
+
   // GitHub extraction for Experience
   const handleExtractGitHubExp = async (e) => {
     e.preventDefault();
@@ -405,6 +496,91 @@ export default function ProfilePage({ currentUser }) {
     }
   };
 
+  const handleStartEditExperience = (exp) => {
+    setEditingExpId(exp.id);
+    setEditExpForm({
+      company: exp.company || '',
+      title: exp.title || '',
+      location: exp.location || '',
+      start_date: exp.start_date || '',
+      end_date: exp.end_date || '',
+      is_current: exp.is_current || false,
+      description: exp.description || '',
+      bullets: (exp.bullets || []).join('\n'),
+    });
+  };
+
+  const handleSaveEditExperience = async (e) => {
+    e.preventDefault();
+    if (!editExpForm.company.trim() || !editExpForm.title.trim()) return;
+    try {
+      const payload = {
+        company: editExpForm.company.trim(),
+        title: editExpForm.title.trim(),
+        location: editExpForm.location.trim(),
+        description: editExpForm.description.trim(),
+        bullets: editExpForm.bullets
+          ? editExpForm.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
+          : [],
+        start_date: editExpForm.start_date || null,
+        end_date: editExpForm.is_current ? null : (editExpForm.end_date || null),
+        is_current: editExpForm.is_current,
+      };
+      await profileApi.updateExperience(editingExpId, payload);
+      setEditingExpId(null);
+      await loadProfileAndResumes();
+      setValidationPopup({
+        title: 'Experience Saved',
+        message: `Work experience at "${payload.company}" updated successfully.`,
+      });
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Failed to update experience.' });
+    }
+  };
+
+  // Template handlers
+  const handleUploadTemplate = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith('.tex') && !lower.endsWith('.zip')) {
+      setFeedbackMsg({ type: 'error', text: 'Template file must be a .tex file or .zip package.' });
+      return;
+    }
+    setUploadingTemplate(true);
+    setFeedbackMsg({ type: '', text: '' });
+    try {
+      const res = await profileApi.uploadTemplate(file);
+      const tpl = await profileApi.getTemplate();
+      setTemplateInfo(tpl);
+      setFeedbackMsg({ type: 'success', text: res.message || 'Custom LaTeX template activated!' });
+      setValidationPopup({
+        title: 'Custom LaTeX Template Active',
+        message: `Template "${file.name}" has been uploaded and activated. Resumes will now be rendered strictly using this template.`,
+      });
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Failed to upload template.' });
+    } finally {
+      setUploadingTemplate(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteTemplate = async () => {
+    try {
+      await profileApi.deleteTemplate();
+      const tpl = await profileApi.getTemplate();
+      setTemplateInfo(tpl);
+      setFeedbackMsg({ type: 'success', text: 'Reverted to default LaTeX template.' });
+      setValidationPopup({
+        title: 'Reverted to Default Template',
+        message: 'Custom template removed. The system base template is now active.',
+      });
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: 'Failed to revert template.' });
+    }
+  };
+
   // Education & Certification handlers
   const handleAddEducation = async (e) => {
     e.preventDefault();
@@ -420,6 +596,35 @@ export default function ProfilePage({ currentUser }) {
       });
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to add education.' });
+    }
+  };
+
+  const handleStartEditEducation = (edu) => {
+    setEditingEduId(edu.id);
+    setEditEduForm({
+      institution: edu.institution || '',
+      degree: edu.degree || '',
+      field_of_study: edu.field_of_study || '',
+      grade: edu.grade || '',
+      start_date: edu.start_date || '',
+      end_date: edu.end_date || '',
+    });
+  };
+
+  const handleSaveEditEducation = async (e) => {
+    e.preventDefault();
+    if (!editEduForm.institution.trim() || !editEduForm.degree.trim()) return;
+    try {
+      await profileApi.updateEducation(editingEduId, editEduForm);
+      setEditingEduId(null);
+      await loadProfileAndResumes();
+      setFeedbackMsg({ type: 'success', text: 'Education record updated.' });
+      setValidationPopup({
+        title: 'Education Updated',
+        message: `Successfully updated record for ${editEduForm.degree} at ${editEduForm.institution}.`,
+      });
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: 'Failed to update education.' });
     }
   };
 
@@ -447,6 +652,33 @@ export default function ProfilePage({ currentUser }) {
       });
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to add certification.' });
+    }
+  };
+
+  const handleStartEditCert = (cert) => {
+    setEditingCertId(cert.id);
+    setEditCertForm({
+      name: cert.name || '',
+      issuer: cert.issuer || '',
+      issue_date: cert.issue_date || '',
+      credential_url: cert.credential_url || '',
+    });
+  };
+
+  const handleSaveEditCert = async (e) => {
+    e.preventDefault();
+    if (!editCertForm.name.trim() || !editCertForm.issuer.trim()) return;
+    try {
+      await profileApi.updateCertification(editingCertId, editCertForm);
+      setEditingCertId(null);
+      await loadProfileAndResumes();
+      setFeedbackMsg({ type: 'success', text: 'Certification updated.' });
+      setValidationPopup({
+        title: 'Certification Updated',
+        message: `Successfully updated certification "${editCertForm.name}".`,
+      });
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: 'Failed to update certification.' });
     }
   };
 
@@ -1118,50 +1350,169 @@ export default function ProfilePage({ currentUser }) {
               <h4 className="text-xs font-mono uppercase font-bold text-charcoal-muted">
                 Candidate Projects ({profile?.projects?.length || 0})
               </h4>
-              {profile?.projects?.map((proj) => (
-                <div key={proj.id} className="border-2 border-charcoal p-4 bg-white flex justify-between items-start gap-4">
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center space-x-2">
-                      <h5 className="font-bold text-sm text-charcoal">{proj.title}</h5>
-                      {proj.url && (
-                        <a
-                          href={proj.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-coral hover:underline inline-flex items-center space-x-1 text-xs font-mono"
+              {profile?.projects?.map((proj) => {
+                const isEditing = editingProjectId === proj.id;
+                if (isEditing) {
+                  return (
+                    <form
+                      key={proj.id}
+                      onSubmit={handleSaveEditProject}
+                      className="border-2 border-charcoal p-4 bg-cream space-y-3 shadow-brutal-sm"
+                    >
+                      <div className="flex justify-between items-center border-b border-cream-border pb-2">
+                        <span className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
+                          <Edit3 className="w-3.5 h-3.5 text-coral" />
+                          <span>Edit Project: {proj.title}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingProjectId(null)}
+                          className="text-charcoal-muted hover:text-charcoal p-1"
                         >
-                          <LinkIcon className="w-3 h-3" />
-                          <span>Repository</span>
-                        </a>
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Project Title *</label>
+                          <input
+                            type="text"
+                            value={editProjectForm.title}
+                            onChange={(e) => setEditProjectForm({ ...editProjectForm, title: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Tech Stack (comma-separated)</label>
+                          <input
+                            type="text"
+                            value={editProjectForm.technologies}
+                            onChange={(e) => setEditProjectForm({ ...editProjectForm, technologies: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Role in Project</label>
+                          <input
+                            type="text"
+                            value={editProjectForm.role}
+                            onChange={(e) => setEditProjectForm({ ...editProjectForm, role: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Repository URL</label>
+                          <input
+                            type="url"
+                            value={editProjectForm.url}
+                            onChange={(e) => setEditProjectForm({ ...editProjectForm, url: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs font-mono bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Description</label>
+                        <textarea
+                          rows={2}
+                          value={editProjectForm.description}
+                          onChange={(e) => setEditProjectForm({ ...editProjectForm, description: e.target.value })}
+                          className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">
+                          Accomplishment Bullets (One per line)
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={editProjectForm.bullets}
+                          onChange={(e) => setEditProjectForm({ ...editProjectForm, bullets: e.target.value })}
+                          className="w-full border-2 border-charcoal p-2 text-xs font-mono bg-white"
+                        />
+                      </div>
+
+                      <div className="flex justify-end space-x-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingProjectId(null)}
+                          className="btn-secondary text-xs py-1.5 px-3 bg-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn-primary text-xs py-1.5 px-4 flex items-center space-x-1.5"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>Save Changes</span>
+                        </button>
+                      </div>
+                    </form>
+                  );
+                }
+
+                return (
+                  <div key={proj.id} className="border-2 border-charcoal p-4 bg-white flex justify-between items-start gap-4">
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex items-center space-x-2">
+                        <h5 className="font-bold text-sm text-charcoal">{proj.title}</h5>
+                        {proj.role && <span className="text-xs text-charcoal-muted font-mono">• {proj.role}</span>}
+                        {proj.url && (
+                          <a
+                            href={proj.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-coral hover:underline inline-flex items-center space-x-1 text-xs font-mono"
+                          >
+                            <LinkIcon className="w-3 h-3" />
+                            <span>Repository</span>
+                          </a>
+                        )}
+                      </div>
+                      {proj.description && <p className="text-xs text-charcoal-muted">{proj.description}</p>}
+                      {proj.technologies && proj.technologies.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {proj.technologies.map((tech, i) => (
+                            <span key={i} className="badge-tag bg-cream text-charcoal border-charcoal text-[10px]">
+                              {tech}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {proj.bullets && proj.bullets.length > 0 && (
+                        <ul className="list-disc list-inside text-xs text-charcoal space-y-0.5 pt-1">
+                          {proj.bullets.map((b, idx) => (
+                            <li key={idx} className="leading-relaxed">{b}</li>
+                          ))}
+                        </ul>
                       )}
                     </div>
-                    {proj.description && <p className="text-xs text-charcoal-muted">{proj.description}</p>}
-                    {proj.technologies && proj.technologies.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {proj.technologies.map((tech, i) => (
-                          <span key={i} className="badge-tag bg-cream text-charcoal border-charcoal text-[10px]">
-                            {tech}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {proj.bullets && proj.bullets.length > 0 && (
-                      <ul className="list-disc list-inside text-xs text-charcoal space-y-0.5 pt-1">
-                        {proj.bullets.map((b, idx) => (
-                          <li key={idx} className="leading-relaxed">{b}</li>
-                        ))}
-                      </ul>
-                    )}
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <button
+                        onClick={() => handleStartEditProject(proj)}
+                        className="p-1.5 border border-charcoal bg-cream hover:bg-white text-charcoal"
+                        title="Edit project"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProject(proj.id)}
+                        className="p-1.5 border border-charcoal bg-cream hover:bg-white text-rose-600 hover:text-rose-800"
+                        title="Remove project"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteProject(proj.id)}
-                    className="text-rose-600 hover:text-rose-800 p-1"
-                    title="Remove project"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
               {(!profile?.projects || profile.projects.length === 0) && (
                 <p className="text-xs text-charcoal-muted">No projects added yet. Extract from GitHub or add manually above.</p>
               )}
@@ -1276,20 +1627,18 @@ export default function ProfilePage({ currentUser }) {
                 <div>
                   <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Start Date</label>
                   <input
-                    type="text"
+                    type="date"
                     value={newExperience.start_date}
                     onChange={(e) => setNewExperience({ ...newExperience, start_date: e.target.value })}
-                    placeholder="e.g. Jan 2021"
                     className="w-full border-2 border-charcoal p-2 text-sm bg-white"
                   />
                 </div>
                 <div>
                   <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">End Date</label>
                   <input
-                    type="text"
+                    type="date"
                     value={newExperience.end_date}
                     onChange={(e) => setNewExperience({ ...newExperience, end_date: e.target.value })}
-                    placeholder={newExperience.is_current ? 'Present' : 'e.g. Present or Dec 2023'}
                     disabled={newExperience.is_current}
                     className="w-full border-2 border-charcoal p-2 text-sm bg-white disabled:bg-cream-muted"
                   />
@@ -1346,36 +1695,178 @@ export default function ProfilePage({ currentUser }) {
               <h4 className="text-xs font-mono uppercase font-bold text-charcoal-muted">
                 Candidate Work Experience ({profile?.experiences?.length || 0})
               </h4>
-              {profile?.experiences?.map((exp) => (
-                <div key={exp.id} className="border-2 border-charcoal p-4 bg-white flex justify-between items-start gap-4">
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center space-x-2">
-                      <h5 className="font-bold text-sm text-charcoal">{exp.title}</h5>
-                      <span className="text-xs text-charcoal-muted">at</span>
-                      <span className="font-semibold text-xs text-charcoal">{exp.company}</span>
-                      {exp.location && <span className="text-xs text-charcoal-muted">• {exp.location}</span>}
+              {profile?.experiences?.map((exp) => {
+                const isEditing = editingExpId === exp.id;
+                if (isEditing) {
+                  return (
+                    <form
+                      key={exp.id}
+                      onSubmit={handleSaveEditExperience}
+                      className="border-2 border-charcoal p-4 bg-cream space-y-3 shadow-brutal-sm"
+                    >
+                      <div className="flex justify-between items-center border-b border-cream-border pb-2">
+                        <span className="font-bold text-xs uppercase tracking-wider text-charcoal flex items-center space-x-1.5">
+                          <Edit3 className="w-3.5 h-3.5 text-coral" />
+                          <span>Edit Work Experience: {exp.company}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingExpId(null)}
+                          className="text-charcoal-muted hover:text-charcoal p-1"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Company *</label>
+                          <input
+                            type="text"
+                            value={editExpForm.company}
+                            onChange={(e) => setEditExpForm({ ...editExpForm, company: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Job Title *</label>
+                          <input
+                            type="text"
+                            value={editExpForm.title}
+                            onChange={(e) => setEditExpForm({ ...editExpForm, title: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Location</label>
+                          <input
+                            type="text"
+                            value={editExpForm.location}
+                            onChange={(e) => setEditExpForm({ ...editExpForm, location: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Start Date</label>
+                          <input
+                            type="date"
+                            value={editExpForm.start_date}
+                            onChange={(e) => setEditExpForm({ ...editExpForm, start_date: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">End Date</label>
+                          <input
+                            type="date"
+                            value={editExpForm.end_date}
+                            onChange={(e) => setEditExpForm({ ...editExpForm, end_date: e.target.value })}
+                            disabled={editExpForm.is_current}
+                            className="w-full border-2 border-charcoal p-2 text-sm bg-white disabled:bg-cream-muted"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 pt-1">
+                        <input
+                          type="checkbox"
+                          id={`edit_is_current_${exp.id}`}
+                          checked={editExpForm.is_current}
+                          onChange={(e) => setEditExpForm({ ...editExpForm, is_current: e.target.checked })}
+                          className="rounded border-charcoal text-coral focus:ring-coral"
+                        />
+                        <label htmlFor={`edit_is_current_${exp.id}`} className="text-xs font-mono text-charcoal">
+                          I currently work here
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Role Description</label>
+                        <textarea
+                          rows={2}
+                          value={editExpForm.description}
+                          onChange={(e) => setEditExpForm({ ...editExpForm, description: e.target.value })}
+                          className="w-full border-2 border-charcoal p-2 text-sm bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">
+                          Accomplishment Bullets (One per line)
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={editExpForm.bullets}
+                          onChange={(e) => setEditExpForm({ ...editExpForm, bullets: e.target.value })}
+                          className="w-full border-2 border-charcoal p-2 text-xs font-mono bg-white"
+                        />
+                      </div>
+
+                      <div className="flex justify-end space-x-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingExpId(null)}
+                          className="btn-secondary text-xs py-1.5 px-3 bg-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn-primary text-xs py-1.5 px-4 flex items-center space-x-1.5"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>Save Changes</span>
+                        </button>
+                      </div>
+                    </form>
+                  );
+                }
+
+                return (
+                  <div key={exp.id} className="border-2 border-charcoal p-4 bg-white flex justify-between items-start gap-4">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center space-x-2">
+                        <h5 className="font-bold text-sm text-charcoal">{exp.title}</h5>
+                        <span className="text-xs text-charcoal-muted">at</span>
+                        <span className="font-semibold text-xs text-charcoal">{exp.company}</span>
+                        {exp.location && <span className="text-xs text-charcoal-muted">• {exp.location}</span>}
+                      </div>
+                      <div className="text-xs font-mono text-charcoal-muted">
+                        {exp.start_date || 'Start'} – {exp.is_current ? 'Present' : exp.end_date || 'End'}
+                      </div>
+                      {exp.description && <p className="text-xs text-charcoal-muted pt-1">{exp.description}</p>}
+                      {exp.bullets && exp.bullets.length > 0 && (
+                        <ul className="list-disc list-inside text-xs text-charcoal space-y-0.5 pt-1">
+                          {exp.bullets.map((b, idx) => (
+                            <li key={idx} className="leading-relaxed">{b}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                    <div className="text-xs font-mono text-charcoal-muted">
-                      {exp.start_date || 'Start'} – {exp.is_current ? 'Present' : exp.end_date || 'End'}
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <button
+                        onClick={() => handleStartEditExperience(exp)}
+                        className="p-1.5 border border-charcoal bg-cream hover:bg-white text-charcoal"
+                        title="Edit experience"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteExperience(exp.id)}
+                        className="p-1.5 border border-charcoal bg-cream hover:bg-white text-rose-600 hover:text-rose-800"
+                        title="Remove experience"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    {exp.description && <p className="text-xs text-charcoal-muted pt-1">{exp.description}</p>}
-                    {exp.bullets && exp.bullets.length > 0 && (
-                      <ul className="list-disc list-inside text-xs text-charcoal space-y-0.5 pt-1">
-                        {exp.bullets.map((b, idx) => (
-                          <li key={idx} className="leading-relaxed">{b}</li>
-                        ))}
-                      </ul>
-                    )}
                   </div>
-                  <button
-                    onClick={() => handleDeleteExperience(exp.id)}
-                    className="text-rose-600 hover:text-rose-800 p-1"
-                    title="Remove experience"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
               {(!profile?.experiences || profile.experiences.length === 0) && (
                 <p className="text-xs text-charcoal-muted">No experience records added yet.</p>
               )}
@@ -1450,17 +1941,121 @@ export default function ProfilePage({ currentUser }) {
                 Candidate Education Records ({profile?.educations?.length || 0})
               </h4>
               {profile?.educations?.map((edu) => (
-                <div key={edu.id} className="border-2 border-charcoal p-4 bg-white flex justify-between items-start">
-                  <div>
-                    <h5 className="font-bold text-sm text-charcoal">{edu.degree}</h5>
-                    <div className="text-xs text-charcoal-muted mt-0.5">
-                      {edu.institution} {edu.field_of_study ? `• ${edu.field_of_study}` : ''}
+                <div key={edu.id} className="border-2 border-charcoal p-4 bg-white">
+                  {editingEduId === edu.id ? (
+                    <form onSubmit={handleSaveEditEducation} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Degree *</label>
+                          <input
+                            type="text"
+                            value={editEduForm.degree}
+                            onChange={(e) => setEditEduForm({ ...editEduForm, degree: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Institution *</label>
+                          <input
+                            type="text"
+                            value={editEduForm.institution}
+                            onChange={(e) => setEditEduForm({ ...editEduForm, institution: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Field of Study</label>
+                          <input
+                            type="text"
+                            value={editEduForm.field_of_study}
+                            onChange={(e) => setEditEduForm({ ...editEduForm, field_of_study: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Grade / GPA</label>
+                          <input
+                            type="text"
+                            value={editEduForm.grade}
+                            onChange={(e) => setEditEduForm({ ...editEduForm, grade: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Start Date</label>
+                          <input
+                            type="date"
+                            value={editEduForm.start_date || ''}
+                            onChange={(e) => setEditEduForm({ ...editEduForm, start_date: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">End Date</label>
+                          <input
+                            type="date"
+                            value={editEduForm.end_date || ''}
+                            onChange={(e) => setEditEduForm({ ...editEduForm, end_date: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingEduId(null)}
+                          className="px-3 py-1.5 border border-charcoal text-xs font-mono hover:bg-cream"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn-primary text-xs py-1.5 px-3 flex items-center space-x-1"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>Save Changes</span>
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h5 className="font-bold text-sm text-charcoal">{edu.degree}</h5>
+                        <div className="text-xs text-charcoal-muted mt-0.5">
+                          {edu.institution} {edu.field_of_study ? `• ${edu.field_of_study}` : ''}
+                        </div>
+                        {edu.grade && <span className="text-xs font-mono text-emerald-800 font-bold block mt-1">Grade: {edu.grade}</span>}
+                        {(edu.start_date || edu.end_date) && (
+                          <div className="text-[11px] font-mono text-charcoal-muted mt-1">
+                            {edu.start_date || 'N/A'} - {edu.end_date || 'Present'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => handleStartEditEducation(edu)}
+                          className="p-1.5 border border-charcoal bg-cream hover:bg-white text-charcoal text-xs flex items-center space-x-1"
+                          title="Edit education"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEducation(edu.id)}
+                          className="p-1.5 border border-charcoal bg-cream hover:bg-white text-rose-600 hover:text-rose-800"
+                          title="Delete education"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    {edu.grade && <span className="text-xs font-mono text-emerald-800 font-bold block mt-1">Grade: {edu.grade}</span>}
-                  </div>
-                  <button onClick={() => handleDeleteEducation(edu.id)} className="text-rose-600 hover:text-rose-800 p-1">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  )}
                 </div>
               ))}
               {(!profile?.educations || profile.educations.length === 0) && (
@@ -1504,10 +2099,9 @@ export default function ProfilePage({ currentUser }) {
                 <div>
                   <label className="block text-[11px] font-mono uppercase text-charcoal-muted mb-1">Issue Date</label>
                   <input
-                    type="text"
+                    type="date"
                     value={newCert.issue_date}
                     onChange={(e) => setNewCert({ ...newCert, issue_date: e.target.value })}
-                    placeholder="e.g. 2024"
                     className="w-full border-2 border-charcoal p-2 text-sm bg-white"
                   />
                 </div>
@@ -1525,16 +2119,107 @@ export default function ProfilePage({ currentUser }) {
                 Candidate Certifications ({profile?.certifications?.length || 0})
               </h4>
               {profile?.certifications?.map((c) => (
-                <div key={c.id} className="border-2 border-charcoal p-4 bg-white flex justify-between items-start">
-                  <div>
-                    <h5 className="font-bold text-sm text-charcoal">{c.name}</h5>
-                    <div className="text-xs text-charcoal-muted mt-0.5">
-                      {c.issuer} {c.issue_date ? `• ${c.issue_date}` : ''}
+                <div key={c.id} className="border-2 border-charcoal p-4 bg-white">
+                  {editingCertId === c.id ? (
+                    <form onSubmit={handleSaveEditCert} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Certification Name *</label>
+                          <input
+                            type="text"
+                            value={editCertForm.name}
+                            onChange={(e) => setEditCertForm({ ...editCertForm, name: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Issuing Organization *</label>
+                          <input
+                            type="text"
+                            value={editCertForm.issuer}
+                            onChange={(e) => setEditCertForm({ ...editCertForm, issuer: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Issue Date</label>
+                          <input
+                            type="date"
+                            value={editCertForm.issue_date || ''}
+                            onChange={(e) => setEditCertForm({ ...editCertForm, issue_date: e.target.value })}
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-charcoal-muted mb-1">Credential URL</label>
+                          <input
+                            type="url"
+                            value={editCertForm.credential_url || ''}
+                            onChange={(e) => setEditCertForm({ ...editCertForm, credential_url: e.target.value })}
+                            placeholder="https://..."
+                            className="w-full border-2 border-charcoal p-2 text-xs bg-cream-bg"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingCertId(null)}
+                          className="px-3 py-1.5 border border-charcoal text-xs font-mono hover:bg-cream"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="btn-primary text-xs py-1.5 px-3 flex items-center space-x-1"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>Save Changes</span>
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h5 className="font-bold text-sm text-charcoal">{c.name}</h5>
+                        <div className="text-xs text-charcoal-muted mt-0.5">
+                          {c.issuer} {c.issue_date ? `• ${c.issue_date}` : ''}
+                        </div>
+                        {c.credential_url && (
+                          <a
+                            href={c.credential_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center space-x-1 text-[11px] text-coral hover:underline mt-1"
+                          >
+                            <span>Verify Credential</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => handleStartEditCert(c)}
+                          className="p-1.5 border border-charcoal bg-cream hover:bg-white text-charcoal text-xs flex items-center space-x-1"
+                          title="Edit certification"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCert(c.id)}
+                          className="p-1.5 border border-charcoal bg-cream hover:bg-white text-rose-600 hover:text-rose-800"
+                          title="Delete certification"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <button onClick={() => handleDeleteCert(c.id)} className="text-rose-600 hover:text-rose-800 p-1">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  )}
                 </div>
               ))}
               {(!profile?.certifications || profile.certifications.length === 0) && (
@@ -1546,20 +2231,74 @@ export default function ProfilePage({ currentUser }) {
 
         {/* Tab 7: Resume Template (LaTeX) */}
         {activeSection === 'template' && (
-          <div className="bg-cream border-2 border-charcoal p-6 space-y-4 font-mono text-xs">
-            <h3 className="font-bold text-sm text-charcoal uppercase">LaTeX Template Package Manager</h3>
-            <p className="text-charcoal-muted">
-              PrivateResume uses candidate LaTeX packages to deterministically render ATS-compliant PDFs.
-            </p>
-            <div className="p-4 bg-white border border-charcoal space-y-2">
-              <div className="flex justify-between">
-                <span className="text-charcoal-muted">Default Template:</span>
-                <span className="font-bold text-emerald-800">Modern Editorial (main.tex)</span>
+          <div className="bg-cream border-2 border-charcoal p-6 space-y-5 font-mono text-xs">
+            <div>
+              <h3 className="font-bold text-sm text-charcoal uppercase">LaTeX Template Package Manager</h3>
+              <p className="text-charcoal-muted mt-1">
+                Upload your preferred custom LaTeX template (.tex file or .zip package). When provided, PrivateResume compiles your PDF strictly with this template.
+              </p>
+            </div>
+
+            <div className="p-4 bg-white border-2 border-charcoal space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cream-border pb-3">
+                <span className="text-charcoal-muted font-bold uppercase text-[11px]">Active LaTeX Engine Template:</span>
+                {templateInfo?.has_custom_template ? (
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-400">
+                    Custom Template Active: {templateInfo.template_name || 'main.tex'}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-bold bg-cream text-charcoal border border-charcoal">
+                    System Default Template (Modern Editorial)
+                  </span>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-charcoal-muted">Compiler Engine:</span>
-                <span className="font-bold text-charcoal">pdflatex (Local Host / Docker)</span>
+
+              {/* Upload New Template (.tex or .zip) */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold uppercase text-charcoal">
+                  Upload Custom LaTeX Template (.tex or .zip package)
+                </label>
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".tex,.zip"
+                    onChange={handleUploadTemplate}
+                    disabled={uploadingTemplate}
+                    className="w-full text-xs file:mr-3 file:py-2 file:px-3 file:border-2 file:border-charcoal file:text-xs file:font-bold file:bg-white file:text-charcoal hover:file:bg-cream cursor-pointer disabled:opacity-50"
+                  />
+                  {uploadingTemplate && (
+                    <span className="text-xs text-coral font-bold shrink-0 animate-pulse">Uploading...</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-charcoal-muted">
+                  Accepts a single <code>.tex</code> document or a <code>.zip</code> package containing style files (<code>.cls</code>, <code>.sty</code>) alongside <code>main.tex</code>.
+                </p>
               </div>
+
+              {/* Active Template Controls */}
+              {templateInfo?.has_custom_template && (
+                <div className="pt-3 border-t border-cream-border flex justify-between items-center">
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-xs text-charcoal flex items-center space-x-1.5">
+                      <FileText className="w-3.5 h-3.5 text-coral" />
+                      <span>{templateInfo.template_name || 'Custom LaTeX Template'}</span>
+                    </div>
+                    {templateInfo.template_size && (
+                      <div className="text-[10px] text-charcoal-muted">
+                        Size: {(templateInfo.template_size / 1024).toFixed(1)} KB
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleDeleteTemplate}
+                    className="px-3 py-1.5 border border-charcoal bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs flex items-center space-x-1"
+                    title="Remove custom template and revert to default"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Revert to Default Template</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
