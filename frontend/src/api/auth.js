@@ -1,9 +1,9 @@
-import { api } from './client';
+import { api } from "./client.js";
 
 export const authApi = {
   async login(email, password) {
-    const data = await api.request('/auth/login', {
-      method: 'POST',
+    const data = await api.request("/auth/login", {
+      method: "POST",
       body: JSON.stringify({ email, password }),
     });
     if (data?.access_token) {
@@ -12,9 +12,9 @@ export const authApi = {
     return data;
   },
 
-  async register(email, password, fullName = '') {
-    return api.request('/auth/register', {
-      method: 'POST',
+  async register(email, password, fullName = "") {
+    return api.request("/auth/register", {
+      method: "POST",
       body: JSON.stringify({
         email,
         password,
@@ -24,7 +24,7 @@ export const authApi = {
   },
 
   async getMe() {
-    return api.request('/auth/me');
+    return api.request("/auth/me");
   },
 
   logout() {

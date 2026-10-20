@@ -1,32 +1,34 @@
-from typing import List, Union
-from pydantic import AnyHttpUrl, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
 import json
+from typing import List, Union
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "PrivateResume API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    
+
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
-    
-    # Security
-    SECRET_KEY: str = "dev_secret_key_change_in_production"
+
+    # Security: these values must be supplied through environment configuration.
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
-    
-    # Database
-    DATABASE_URL: str = "postgresql+psycopg2://privateresume:privateresume_dev@localhost:5432/privateresume"
-    
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
+
+    # Database: provide the URL appropriate for the current runtime.
+    DATABASE_URL: str
+
     # Ollama Local AI
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "mistral"
-    
+
     # Storage
     STORAGE_DIR: str = "./storage"
-    
+
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
@@ -36,18 +38,29 @@ class Settings(BaseSettings):
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, str) and v.startswith("["):
-            return json.loads(v)
-        return v
+    def assemble_cors_origins(
+        cls, value: Union[str, List[str]]
+    ) -> List[str]:
+        if isinstance(value, str):
+            value = value.strip()
+
+            if value.startswith("["):
+                parsed = json.loads(value)
+                if not isinstance(parsed, list):
+                    raise ValueError(
+                        "BACKEND_CORS_ORIGINS must be a JSON list or comma-separated string"
+                    )
+                return parsed
+
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+        return value
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
-        extra="ignore"
+        extra="ignore",
     )
 
 

@@ -1,26 +1,33 @@
-import React, { useState } from 'react';
-import { Lock, Mail, User, ShieldCheck, LogOut, CheckCircle2 } from 'lucide-react';
-import { authApi } from '../api/auth';
+import React, { useState } from "react";
+import {
+  Lock,
+  Mail,
+  User,
+  ShieldCheck,
+  LogOut,
+  CheckCircle2,
+} from "lucide-react";
+import { authApi } from "../api/auth";
 
 export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
   const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMsg('');
-    setSuccessMsg('');
+    setErrorMsg("");
+    setSuccessMsg("");
     setLoading(true);
 
     try {
       if (isRegister) {
         await authApi.register(email, password, fullName);
-        setSuccessMsg('Account created successfully! Signing you in...');
+        setSuccessMsg("Account created successfully! Signing you in...");
         // Auto-login after registration
         await authApi.login(email, password);
       } else {
@@ -31,7 +38,9 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
         onAuthSuccess(user);
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Authentication failed. Please verify your details.');
+      setErrorMsg(
+        err.message || "Authentication failed. Please verify your details.",
+      );
     } finally {
       setLoading(false);
     }
@@ -41,36 +50,28 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
     return (
       <div className="max-w-md mx-auto pt-6">
         <div className="card-brutal space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 bg-charcoal text-white mx-auto flex items-center justify-center font-bold text-xl shadow-brutal-sm">
-              <ShieldCheck className="w-6 h-6 text-emerald-400" />
-            </div>
-            <h2 className="text-2xl font-bold tracking-tight text-charcoal">
-              Authenticated Session
-            </h2>
-            <p className="text-xs text-charcoal-muted">
-              Candidate session active.
-            </p>
-          </div>
+          <div className="text-center space-y-2"></div>
 
           <div className="bg-cream border-2 border-charcoal p-4 space-y-2 text-xs font-mono">
             <div className="flex justify-between">
               <span className="text-charcoal-muted">Email:</span>
-              <span className="font-semibold text-charcoal">{currentUser.email}</span>
+              <span className="font-semibold text-charcoal">
+                {currentUser.email}
+              </span>
             </div>
             {currentUser.full_name && (
               <div className="flex justify-between">
                 <span className="text-charcoal-muted">Name:</span>
-                <span className="font-semibold text-charcoal">{currentUser.full_name}</span>
+                <span className="font-semibold text-charcoal">
+                  {currentUser.full_name}
+                </span>
               </div>
             )}
             <div className="flex justify-between">
               <span className="text-charcoal-muted">User ID:</span>
-              <span className="font-semibold text-charcoal">#{currentUser.id}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-charcoal-muted">Status:</span>
-              <span className="text-emerald-700 font-bold">Active & Verified</span>
+              <span className="font-semibold text-charcoal">
+                #{currentUser.id}
+              </span>
             </div>
           </div>
 
@@ -94,10 +95,12 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
             <Lock className="w-6 h-6 text-coral" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-charcoal">
-            {isRegister ? 'Create Your Account' : 'Welcome to PrivateResume'}
+            {isRegister ? "Create Your Account" : "Welcome to PrivateResume"}
           </h2>
           <p className="text-xs text-charcoal-muted">
-            {isRegister ? 'Enter your details to create an account.' : 'Sign in to access your resumes and applications.'}
+            {isRegister
+              ? "Enter your details to create an account."
+              : "Sign in to access your resumes and applications."}
           </p>
         </div>
 
@@ -164,10 +167,10 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
             className="btn-primary w-full py-2.5 mt-2"
           >
             {loading
-              ? 'Processing...'
+              ? "Processing..."
               : isRegister
-              ? 'Register Account'
-              : 'Sign In'}
+                ? "Register Account"
+                : "Sign In"}
           </button>
         </form>
 
@@ -176,13 +179,13 @@ export default function AuthPage({ currentUser, onAuthSuccess, onLogout }) {
             type="button"
             onClick={() => {
               setIsRegister(!isRegister);
-              setErrorMsg('');
-              setSuccessMsg('');
+              setErrorMsg("");
+              setSuccessMsg("");
             }}
             className="text-xs font-mono text-charcoal hover:underline"
           >
             {isRegister
-              ? 'Already registered? Sign in here'
+              ? "Already registered? Sign in here"
               : "Don't have an account yet? Create one"}
           </button>
         </div>

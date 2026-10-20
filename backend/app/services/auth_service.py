@@ -8,7 +8,8 @@ from app.core.security import get_password_hash, verify_password
 
 class AuthService:
     @staticmethod
-    def get_by_email(db: Session, email: str) -> Optional[User]:
+    def get_by_email(db: Session,
+                     email: str) -> Optional[User]:
         return db.query(User).filter(User.email == email.lower()).first()
 
     @staticmethod

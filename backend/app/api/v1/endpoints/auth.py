@@ -13,13 +13,15 @@ from app.api.deps import get_current_user
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", 
+             response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     """Register a new candidate user."""
     return auth_service.register_user(db=db, user_in=user_in)
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", 
+             response_model=Token)
 def login(login_in: UserLogin, db: Session = Depends(get_db)):
     """Authenticate candidate and issue a JWT bearer token."""
     user = auth_service.authenticate_user(
