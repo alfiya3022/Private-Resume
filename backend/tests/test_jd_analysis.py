@@ -114,3 +114,30 @@ def test_job_analysis_user_isolation(client):
 
     # User 2 attempts to trigger analysis on User 1 job -> 404
     assert client.post(f"/api/v1/jobs/{job_id}/analyze", headers=h2).status_code == 404
+
+
+def test_deterministic_experience_parser_patterns():
+    """Unit test: verify deterministic parser understands all experience patterns without LLM:
+    '0-2 years', '0 to 2 years', '0–2 yrs', '1-3 years', '2+ years',
+    'at least 3 years', 'minimum 5 years', 'fresher' / 'entry level' (min 0).
+    Output: min_years and max_years (None if open-ended).
+    """
+    from app.services.ai.ollama_provider import parse_jd_experience
+
+    test_cases = [
+        ("Looking for a developer with 0-2 years experience", 0, 2),
+        ("Experience required: 0 to 2 years in Python", 0, 2),
+        ("Must have 0–2 yrs software development background", 0, 2),
+        ("Candidate should have 1-3 years of work experience", 1, 3),
+        ("Requires 2+ years building web applications", 2, None),
+        ("Needs at least 3 years in backend engineering", 3, None),
+        ("Requirement: minimum 5 years managing PostgreSQL", 5, None),
+        ("Open to fresher candidates with good fundamentals", 0, None),
+        ("Great opportunity for entry level engineers", 0, None),
+        ("entry-level developer position", 0, None),
+    ]
+
+    for jd_text, expected_min, expected_max in test_cases:
+        min_years, max_years, exp_range = parse_jd_experience(jd_text)
+        assert min_years == expected_min, f"Failed min_years for '{jd_text}': got {min_years}, expected {expected_min}"
+        assert max_years == expected_max, f"Failed max_years for '{jd_text}': got {max_years}, expected {expected_max}"

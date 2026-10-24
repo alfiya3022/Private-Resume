@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # Ollama Local AI
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "mistral"
+    OLLAMA_MODEL: str = "qwen3:4b-instruct"
 
     # Storage
     STORAGE_DIR: str = "./storage"

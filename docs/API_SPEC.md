@@ -102,6 +102,14 @@
 | `POST` | `/profile/certifications` | Bearer | Add certification record (name, issuer, date, url). |
 | `PUT` | `/profile/certifications/{id}` | Bearer | Update certification record. |
 | `DELETE` | `/profile/certifications/{id}` | Bearer | Delete certification record. |
+| `DELETE` | `/profile/sections/{section}` | Bearer | Atomically delete all records in a specific section (`personal`, `skills`, `projects`, `experiences`, `educations`, `certifications`) for candidate profile and return updated profile. |
+| `DELETE` | `/profile/reset-all` | Bearer | Atomically delete all persisted records across all six profile sections and clear personal info fields, returning fresh empty candidate profile. |
+| `DELETE` | `/profile/personal` | Bearer | Clear all personal metadata fields (`headline`, `summary`, `phone`, `location`, `linkedin_url`, etc.) to `None`. |
+| `DELETE` | `/profile/skills` | Bearer | Atomically delete all verified skills for the authenticated candidate. |
+| `DELETE` | `/profile/projects` | Bearer | Atomically delete all project records for the authenticated candidate. |
+| `DELETE` | `/profile/experiences` | Bearer | Atomically delete all experience records for the authenticated candidate. |
+| `DELETE` | `/profile/educations` | Bearer | Atomically delete all education records for the authenticated candidate. |
+| `DELETE` | `/profile/certifications` | Bearer | Atomically delete all certification records for the authenticated candidate. |
 | `POST` | `/profile/template` | Bearer | Upload custom LaTeX template (`.tex` or `.zip` package). |
 | `GET` | `/profile/template` | Bearer | Get metadata about active custom template or default status. |
 | `DELETE` | `/profile/template` | Bearer | Delete custom template and revert to default ATS template. |
@@ -111,10 +119,12 @@
 ### 3.4 Master Resumes (`/resumes`)
 | Method | Endpoint | Auth | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/resumes/upload` | Bearer | Ingest a master resume PDF; parses sections and populates profile. |
-| `GET` | `/resumes` | Bearer | List all uploaded master resume files for candidate. |
+| `POST` | `/resumes` (or `/resumes/upload`) | Bearer | Ingest master resume PDF with optional query parameter `?replace=true`. When `false` (default), rejects duplicate uploads if a resume already exists (`400 Bad Request`). When `true`, atomically replaces existing file, deletes previous artifact, and extracts fresh structured data. |
+| `GET` | `/resumes` | Bearer | List active master resume for candidate (strictly 1:1 per user via migration 011). |
 | `GET` | `/resumes/{id}` | Bearer | Download or view the raw PDF master resume file. |
-| `DELETE` | `/resumes/{id}` | Bearer | Delete an uploaded master resume file. |
+| `DELETE` | `/resumes/{id}` | Bearer | Delete an uploaded master resume file from disk and database record. |
+| `GET` | `/resumes/{id}/extracted-data` | Bearer | Retrieve structured extraction JSON (contact info, skills, experience, projects, education, certifications) and comparison diff badges against candidate profile. |
+| `POST` | `/resumes/{id}/apply-to-profile` (or `/resumes/{id}/apply`) | Bearer | Selectively apply approved extracted sections (`personal`, `skills`, `projects`, `experience`, `education`, `certifications`) to profile with optional `overwrite_existing` flag (default `false`). |
 
 ---
 

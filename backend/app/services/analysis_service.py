@@ -34,6 +34,9 @@ class AnalysisService:
         # Execute extraction through Ollama provider boundary
         structured = await ollama_provider.analyze_job_description(job.raw_jd_text)
 
+        # Store min_years in experience_years DB column, keep max_years and range in raw_analysis JSON payload
+        db_exp_val = str(structured.min_years) if structured.min_years is not None else (structured.experience_years or "Not specified")
+
         # Upsert JobRequirement record
         req = db.query(JobRequirement).filter(JobRequirement.job_id == job_id).first()
         if not req:
@@ -48,7 +51,7 @@ class AnalysisService:
                 cloud=structured.cloud,
                 responsibilities=structured.responsibilities,
                 qualifications=structured.qualifications,
-                experience_years=structured.experience_years,
+                experience_years=db_exp_val,
                 soft_skills=structured.soft_skills,
                 raw_analysis=structured.model_dump(),
             )
@@ -63,7 +66,7 @@ class AnalysisService:
             req.cloud = structured.cloud
             req.responsibilities = structured.responsibilities
             req.qualifications = structured.qualifications
-            req.experience_years = structured.experience_years
+            req.experience_years = db_exp_val
             req.soft_skills = structured.soft_skills
             req.raw_analysis = structured.model_dump()
 

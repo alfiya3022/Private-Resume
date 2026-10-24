@@ -18,8 +18,8 @@ Every technology in this stack has been validated, integrated, and verified agai
 | **ORM / Database Layer**| SQLAlchemy | 2.0+ | Enterprise-grade Object-Relational Mapping with connection pooling and typed queries. |
 | **Schema Migrations** | Alembic | 1.13+ | Version-controlled, deterministic database schema evolution. |
 | **Primary Database** | PostgreSQL | 15 (Alpine) | ACID-compliant relational core with JSONB support, constraints, and foreign key cascades. |
-| **Local AI Inference** | Ollama | Latest (`mistral`) | Local-first Large Language Model inference guaranteeing 100% privacy and zero telemetry. |
-| **PDF Extraction** | PyMuPDF (fitz) | 1.23+ | Ultra-fast local C-level PDF parsing and font/text extraction. |
+| **Local AI Inference** | Ollama | Latest (`qwen3:4b-instruct`) | Local-first Large Language Model inference guaranteeing 100% privacy and zero telemetry. |
+| **PDF Extraction** | PyMuPDF + PyMuPDF4LLM | 1.28+ (1.24+ req) | Ultra-fast local C-level PDF parsing and layout-aware Markdown extraction with clean normalization. |
 | **Document Typesetting**| LaTeX (pdflatex) | MiKTeX / pdfTeX | Industry-standard deterministic typesetting guaranteeing ATS-parsable, selectable vector text. |
 | **Unit & Integration** | Pytest | 8.0+ | Layered testing framework verifying API contracts, auth isolation, and parsing logic. |
 | **E2E Browser Testing** | Playwright | 1.42+ | Cross-browser automated verification for critical candidate workflows. |

@@ -2,7 +2,7 @@
 
 **Style**: Modular Monolith  
 **Posture**: Local-First, Privacy-First, Zero External Telemetry  
-**Stack**: React 18 (Vite) + FastAPI (Python 3.10+) + PostgreSQL 15 + Ollama (`mistral`) + LaTeX (MiKTeX/pdfTeX)
+**Stack**: React 18 (Vite) + FastAPI (Python 3.10+) + PostgreSQL 15 + Ollama (`qwen3:4b-instruct`) + LaTeX (MiKTeX/pdfTeX)
 
 ---
 
@@ -58,7 +58,7 @@ The platform follows a unidirectional, multi-stage workflow:
 
 ```text
 [Stage 1: Ingestion]
-Master PDF ──► PyMuPDF ──► Raw Text ──► Section Detection ──► PostgreSQL Candidate Profile
+Master PDF ──► PyMuPDF + PyMuPDF4LLM ──► clean_resume_markdown ──► Section Detection ──► PostgreSQL Candidate Profile
 
 [Stage 2: JD Analysis]
 Raw JD Text ──► Ollama + Deterministic Taxonomy ──► Structured Requirements (Required, Preferred, Exp)
@@ -84,7 +84,7 @@ PDF Downloaded ──► Auto-log Application Tracker ──► Clean Workspace 
 | :--- | :--- | :--- |
 | **`auth`** | User registration, login, Bcrypt hashing, JWT issuance and token validation. | `users` table |
 | **`profile`** | Structured source of truth for candidate data (experience, projects, skills, education). | `candidate_profiles`, `skills`, `experiences`, `projects`, `educations`, `certifications` |
-| **`resumes`** | Ingestion, validation, and storage of source PDF resumes using PyMuPDF. | `master_resumes` table, `backend/storage/resumes` |
+| **`resumes`** | Ingestion, validation, and storage of source PDF resumes using PyMuPDF and PyMuPDF4LLM. | `master_resumes` table, `backend/storage/resumes` |
 | **`jobs`** | Target opportunity intake, compensation tracking, and status lifecycle. | `jobs` table |
 | **`analysis`** | Hybrid JD extraction: Ollama LLM structured prompt with deterministic fallback taxonomy. | `job_requirements` table |
 | **`matching`** | Primarily deterministic evidence matching; calculates Estimated Job Match. | `match_analyses` table |
@@ -131,9 +131,10 @@ cmd = [
 
 ---
 
-## 7. Multi-Cycle Workspace Isolation
+## 7. Multi-Cycle Workspace Isolation & Candidate-Approved Tracking
 
-To prevent previous application drafts from spilling over into new intake cycles:
-1. **On PDF Download**: The opportunity is automatically registered in the Applications pipeline, updating its job status to `applied`.
-2. **State Erasure**: The workspace draft state is wiped cleanly, resetting the form to Stage 1.
-3. **Clean Intake Query**: `jobsApi.listJobs('active')` only loads unapplied jobs, ensuring every new intake starts with a blank canvas.
+To uphold candidate agency ("AI recommends; candidate reviews; candidate approves") and prevent application drafts from spilling over into new intake cycles:
+1. **Decoupled PDF Download**: Downloading a compiled PDF strictly retrieves the PDF artifact for candidate inspection and submission. It does not automatically register applications or wipe the active workspace state.
+2. **Explicit Candidate-Approved Tracking**: An explicit "Log to Tracker" button in Stage 5 empowers the candidate to deliberately log the opportunity and exact tailored resume version to the Applications pipeline when ready.
+3. **Candidate-Initiated Intake Reset**: The workspace draft state is preserved during review and download. Resetting or transitioning to a new intake cycle is explicitly triggered by the candidate (via the header "New Job Intake" control or starting a new opportunity intake from Stage 1), preventing premature workspace wiping.
+4. **Clean Intake Query**: `jobsApi.listJobs('active')` only loads unapplied jobs, ensuring every new intake cycle starts with a blank canvas and clean separation of concerns.

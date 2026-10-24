@@ -20,7 +20,7 @@ React 18 Frontend (Vite + Tailwind CSS)
        ▼
 FastAPI Modular Monolith Backend
        ├── PostgreSQL 15 (Docker Container: private-resume-db on Port 5433)
-       ├── Ollama Local AI (Mistral on Port 11434)
+       ├── Ollama Local AI (qwen3:4b-instruct on Port 11434)
        ├── Consolidated Local Storage (backend/storage: Resumes, Artifacts, Templates)
        └── Subprocess pdflatex (-halt-on-error -disable-installer -no-shell-escape)
 ```

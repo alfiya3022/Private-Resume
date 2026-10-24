@@ -9,6 +9,7 @@ class ResumeExperienceItem(BaseModel):
     location: Optional[str] = ""
     start_date: Optional[str] = ""
     end_date: Optional[str] = ""
+    is_current: Optional[bool] = False
     bullets: List[str] = Field(default_factory=list)
 
 
@@ -18,6 +19,11 @@ class ResumeProjectItem(BaseModel):
     description: Optional[str] = ""
     bullets: List[str] = Field(default_factory=list)
     link: Optional[str] = ""
+    github_url: Optional[str] = ""
+    live_url: Optional[str] = ""
+    start_date: Optional[str] = ""
+    end_date: Optional[str] = ""
+    is_current: Optional[bool] = False
 
 
 class ResumeEducationItem(BaseModel):
@@ -31,6 +37,7 @@ class ResumeCertificationItem(BaseModel):
     name: str = ""
     issuer: Optional[str] = ""
     year: Optional[str] = ""
+    certificate_url: Optional[str] = ""
 
 
 class TailoredResumeContent(BaseModel):

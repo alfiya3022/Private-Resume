@@ -19,8 +19,11 @@ import {
   ExternalLink,
   Sparkles,
   Link as LinkIcon,
+  Eye,
+  RotateCcw,
 } from 'lucide-react';
 import { profileApi } from '../api/profile';
+import ReviewExtractionModal from '../components/ReviewExtractionModal';
 
 const COUNTRY_CODES = [
   { code: '+91', label: 'IN (+91)' },
@@ -42,6 +45,11 @@ export default function ProfilePage({ currentUser }) {
   const [uploading, setUploading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState({ type: '', text: '' });
   const [validationPopup, setValidationPopup] = useState(null);
+
+  // Extraction review modal state
+  const [reviewResumeData, setReviewResumeData] = useState(null);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [loadingReview, setLoadingReview] = useState(false);
 
   // Personal Info state
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
@@ -113,9 +121,7 @@ export default function ProfilePage({ currentUser }) {
     bullets: '',
   });
 
-  // Custom template packages state
-  const [templateInfo, setTemplateInfo] = useState(null);
-  const [uploadingTemplate, setUploadingTemplate] = useState(false);
+
 
   // Education & Certification state
   const [newEducation, setNewEducation] = useState({ institution: '', degree: '', field_of_study: '', grade: '' });
@@ -138,13 +144,35 @@ export default function ProfilePage({ currentUser }) {
     credential_url: '',
   });
 
+  // Saved baseline & Reset/Save tracking state
+  const [savedBaseline, setSavedBaseline] = useState({
+    personal: null,
+    skills: [],
+    projects: [],
+    experiences: [],
+    educations: [],
+    certifications: [],
+  });
+  const [savingTab, setSavingTab] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
   useEffect(() => {
     if (currentUser) {
       loadProfileAndResumes();
     }
   }, [currentUser]);
 
-  const loadProfileAndResumes = async () => {
+  // Auto-dismiss green success notifications after 4 seconds with timer cleanup
+  useEffect(() => {
+    if (feedbackMsg?.type === 'success' && feedbackMsg?.text) {
+      const timer = setTimeout(() => {
+        setFeedbackMsg({ type: '', text: '' });
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackMsg]);
+
+  const loadProfileAndResumes = async (preserveForms = false) => {
     setLoading(true);
     try {
       const [profData, resumesData] = await Promise.all([
@@ -153,7 +181,8 @@ export default function ProfilePage({ currentUser }) {
       ]);
       setProfile(profData);
       setResumes(resumesData);
-      setPersonalForm({
+
+      const baselinePersonal = {
         headline: profData.headline || '',
         summary: profData.summary || '',
         phone: profData.phone || '',
@@ -161,33 +190,40 @@ export default function ProfilePage({ currentUser }) {
         linkedin_url: profData.linkedin_url || '',
         github_url: profData.github_url || '',
         portfolio_url: profData.portfolio_url || '',
+      };
+
+      setSavedBaseline({
+        personal: baselinePersonal,
+        skills: profData.skills ? JSON.parse(JSON.stringify(profData.skills)) : [],
+        projects: profData.projects ? JSON.parse(JSON.stringify(profData.projects)) : [],
+        experiences: profData.experiences ? JSON.parse(JSON.stringify(profData.experiences)) : [],
+        educations: profData.educations ? JSON.parse(JSON.stringify(profData.educations)) : [],
+        certifications: profData.certifications ? JSON.parse(JSON.stringify(profData.certifications)) : [],
       });
 
-      // Parse phone into country code and number
-      if (profData.phone) {
-        const matched = COUNTRY_CODES.find((c) => profData.phone.startsWith(c.code));
-        if (matched) {
-          setPhoneCountryCode(matched.code);
-          setPhoneDigits(profData.phone.slice(matched.code.length).trim());
+      if (!preserveForms) {
+        setPersonalForm({ ...baselinePersonal });
+
+        // Parse phone into country code and number
+        if (profData.phone) {
+          const matched = COUNTRY_CODES.find((c) => profData.phone.startsWith(c.code));
+          if (matched) {
+            setPhoneCountryCode(matched.code);
+            setPhoneDigits(profData.phone.slice(matched.code.length).trim());
+          } else {
+            setPhoneCountryCode('+91');
+            setPhoneDigits(profData.phone.trim());
+          }
         } else {
           setPhoneCountryCode('+91');
-          setPhoneDigits(profData.phone.trim());
+          setPhoneDigits('');
         }
-      } else {
-        setPhoneCountryCode('+91');
-        setPhoneDigits('');
-      }
 
-      // If personal info has no fields filled, start in edit mode
-      if (!profData.headline && !profData.summary && !profData.location && !profData.phone) {
-        setIsEditingPersonal(true);
+        // If personal info has no fields filled, start in edit mode
+        if (!profData.headline && !profData.summary && !profData.location && !profData.phone) {
+          setIsEditingPersonal(true);
+        }
       }
-
-      // Load active custom template info
-      try {
-        const tpl = await profileApi.getTemplate();
-        setTemplateInfo(tpl);
-      } catch (e) {}
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to load profile data.' });
     } finally {
@@ -195,81 +231,530 @@ export default function ProfilePage({ currentUser }) {
     }
   };
 
-  const handleUpdatePersonal = async (e) => {
-    e.preventDefault();
-    try {
-      const fullPhone = phoneDigits.trim() ? `${phoneCountryCode} ${phoneDigits.trim()}` : '';
-      const payload = { ...personalForm, phone: fullPhone };
-      const updated = await profileApi.updateProfile(payload);
-      setProfile(updated);
-      setIsEditingPersonal(false);
-      setFeedbackMsg({ type: 'success', text: 'Personal info saved successfully.' });
-      setValidationPopup({
-        title: 'Personal Info Saved',
-        message: 'Your personal information and contact details have been successfully saved.',
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to save personal info.' });
+  const hasTabActiveContent = (tabId) => {
+    if (tabId === 'personal') {
+      return !!(
+        (personalForm.headline || '').trim() ||
+        (personalForm.summary || '').trim() ||
+        (personalForm.location || '').trim() ||
+        (phoneDigits || '').trim() ||
+        (personalForm.linkedin_url || '').trim() ||
+        (personalForm.github_url || '').trim() ||
+        (personalForm.portfolio_url || '').trim()
+      );
     }
+    if (tabId === 'skills') {
+      return !!((newSkill.name || '').trim() || newSkill.category);
+    }
+    if (tabId === 'projects') {
+      if (editingProjectId !== null) return true;
+      if (extractedProject !== null) return true;
+      if ((githubProjectUrl || '').trim() !== '') return true;
+      return !!(
+        (newProject.title || '').trim() ||
+        (newProject.role || '').trim() ||
+        (newProject.description || '').trim() ||
+        (newProject.technologies || '').trim() ||
+        (newProject.bullets || '').trim() ||
+        (newProject.url || '').trim() ||
+        (editProjectForm.title || '').trim() ||
+        (editProjectForm.role || '').trim() ||
+        (editProjectForm.description || '').trim() ||
+        (editProjectForm.technologies || '').trim() ||
+        (editProjectForm.bullets || '').trim() ||
+        (editProjectForm.url || '').trim()
+      );
+    }
+    if (tabId === 'experience') {
+      if (editingExpId !== null) return true;
+      if ((githubExpUrl || '').trim() !== '') return true;
+      return !!(
+        (newExperience.company || '').trim() ||
+        (newExperience.title || '').trim() ||
+        (newExperience.location || '').trim() ||
+        (newExperience.description || '').trim() ||
+        (newExperience.bullets || '').trim() ||
+        (newExperience.start_date || '').trim() ||
+        (newExperience.end_date || '').trim() ||
+        newExperience.is_current ||
+        (editExpForm.company || '').trim() ||
+        (editExpForm.title || '').trim() ||
+        (editExpForm.location || '').trim() ||
+        (editExpForm.description || '').trim() ||
+        (editExpForm.bullets || '').trim() ||
+        (editExpForm.start_date || '').trim() ||
+        (editExpForm.end_date || '').trim() ||
+        editExpForm.is_current
+      );
+    }
+    if (tabId === 'education') {
+      if (editingEduId !== null) return true;
+      return !!(
+        (newEducation.institution || '').trim() ||
+        (newEducation.degree || '').trim() ||
+        (newEducation.field_of_study || '').trim() ||
+        (newEducation.grade || '').trim() ||
+        (editEduForm.institution || '').trim() ||
+        (editEduForm.degree || '').trim() ||
+        (editEduForm.field_of_study || '').trim() ||
+        (editEduForm.grade || '').trim()
+      );
+    }
+    if (tabId === 'certifications') {
+      if (editingCertId !== null) return true;
+      return !!(
+        (newCert.name || '').trim() ||
+        (newCert.issuer || '').trim() ||
+        (newCert.issue_date || '').trim() ||
+        (editCertForm.name || '').trim() ||
+        (editCertForm.issuer || '').trim() ||
+        (editCertForm.issue_date || '').trim() ||
+        (editCertForm.credential_url || '').trim()
+      );
+    }
+    return false;
+  };
+
+  const hasTabPersistedContent = (tabId) => {
+    if (tabId === 'personal') {
+      return !!(
+        profile?.headline ||
+        profile?.summary ||
+        profile?.location ||
+        profile?.phone ||
+        profile?.linkedin_url ||
+        profile?.github_url ||
+        profile?.portfolio_url
+      );
+    }
+    if (tabId === 'skills') {
+      return !!(profile?.skills && profile.skills.length > 0);
+    }
+    if (tabId === 'projects') {
+      return !!(profile?.projects && profile.projects.length > 0);
+    }
+    if (tabId === 'experience') {
+      return !!(profile?.experiences && profile.experiences.length > 0);
+    }
+    if (tabId === 'education') {
+      return !!(profile?.educations && profile.educations.length > 0);
+    }
+    if (tabId === 'certifications') {
+      return !!(profile?.certifications && profile.certifications.length > 0);
+    }
+    return false;
+  };
+
+  const hasTabAnyData = (tabId) => {
+    return hasTabPersistedContent(tabId) || hasTabActiveContent(tabId);
+  };
+
+  const hasAnyProfileData = () => {
+    return sections.some((s) => hasTabAnyData(s.id));
+  };
+
+  const performTabReset = (tabId) => {
+    if (tabId === 'personal') {
+      setPersonalForm({
+        headline: '',
+        summary: '',
+        phone: '',
+        location: '',
+        linkedin_url: '',
+        github_url: '',
+        portfolio_url: '',
+      });
+      setPhoneCountryCode('+91');
+      setPhoneDigits('');
+      setIsEditingPersonal(true);
+    } else if (tabId === 'skills') {
+      setNewSkill({ name: '', category: '', proficiency: 'Intermediate' });
+    } else if (tabId === 'projects') {
+      setEditingProjectId(null);
+      setEditProjectForm({ title: '', role: '', technologies: '', url: '', description: '', bullets: '' });
+      setNewProject({ title: '', role: '', description: '', technologies: '', bullets: '', url: '' });
+      setExtractedProject(null);
+      setGithubProjectUrl('');
+    } else if (tabId === 'experience') {
+      setEditingExpId(null);
+      setEditExpForm({ company: '', title: '', location: '', start_date: '', end_date: '', is_current: false, description: '', bullets: '' });
+      setNewExperience({ company: '', title: '', location: '', description: '', bullets: '', start_date: '', end_date: '', is_current: false });
+      setGithubExpUrl('');
+    } else if (tabId === 'education') {
+      setEditingEduId(null);
+      setEditEduForm({ institution: '', degree: '', field_of_study: '', grade: '', start_date: '', end_date: '' });
+      setNewEducation({ institution: '', degree: '', field_of_study: '', grade: '' });
+    } else if (tabId === 'certifications') {
+      setEditingCertId(null);
+      setEditCertForm({ name: '', issuer: '', issue_date: '', credential_url: '' });
+      setNewCert({ name: '', issuer: '', issue_date: '' });
+    }
+  };
+
+  const handleTabReset = (tabId) => {
+    const hasData = hasTabAnyData(tabId);
+    const tabLabel = sections.find((s) => s.id === tabId)?.label || tabId;
+
+    if (!hasData) {
+      performTabReset(tabId);
+      setFeedbackMsg({ type: 'info', text: `${tabLabel} is already empty.` });
+      return;
+    }
+
+    setConfirmDialog({
+      title: `Reset ${tabLabel}`,
+      message: `Permanently delete all saved ${tabLabel.toLowerCase()} records from your candidate profile and clear unsaved drafts? This action cannot be undone.`,
+      confirmLabel: 'Reset & Delete',
+      onConfirm: async () => {
+        setSavingTab(true);
+        setFeedbackMsg({ type: '', text: '' });
+        try {
+          const updated = await profileApi.resetSection(tabId);
+          setProfile(updated);
+          performTabReset(tabId);
+          await loadProfileAndResumes(false);
+          setFeedbackMsg({
+            type: 'success',
+            text: `Successfully reset ${tabLabel} and deleted all saved records.`,
+          });
+        } catch (err) {
+          setFeedbackMsg({
+            type: 'error',
+            text: err?.message || `Failed to reset ${tabLabel}.`,
+          });
+          await loadProfileAndResumes(true);
+        } finally {
+          setSavingTab(false);
+        }
+      },
+    });
+  };
+
+  const handleResetAll = () => {
+    const hasData = hasAnyProfileData();
+
+    if (!hasData) {
+      sections.forEach((s) => performTabReset(s.id));
+      setFeedbackMsg({ type: 'info', text: 'All profile sections are already empty.' });
+      return;
+    }
+
+    setConfirmDialog({
+      title: 'Reset All Profile Data',
+      message: 'Permanently delete all saved records across all six Profile sections (Personal Info, Skills, Projects, Experience, Education, Certifications) and clear all unsaved drafts? Your uploaded Master Resume PDF will NOT be deleted.',
+      confirmLabel: 'Reset All Sections',
+      onConfirm: async () => {
+        setSavingTab(true);
+        setFeedbackMsg({ type: '', text: '' });
+        try {
+          const updated = await profileApi.resetAll();
+          setProfile(updated);
+          sections.forEach((s) => performTabReset(s.id));
+          await loadProfileAndResumes(false);
+          setFeedbackMsg({
+            type: 'success',
+            text: 'Successfully reset all Profile sections and deleted all saved records.',
+          });
+        } catch (err) {
+          setFeedbackMsg({
+            type: 'error',
+            text: err?.message || 'Failed to reset profile sections.',
+          });
+          await loadProfileAndResumes(true);
+        } finally {
+          setSavingTab(false);
+        }
+      },
+    });
+  };
+
+  const handleTabSave = async (tabId) => {
+    setSavingTab(true);
+    setFeedbackMsg({ type: '', text: '' });
+    try {
+      if (tabId === 'personal') {
+        const fullPhone = phoneDigits.trim() ? `${phoneCountryCode} ${phoneDigits.trim()}` : '';
+        const payload = { ...personalForm, phone: fullPhone };
+        const updated = await profileApi.updateProfile(payload);
+        setProfile(updated);
+        const baselinePersonal = {
+          headline: updated.headline || '',
+          summary: updated.summary || '',
+          phone: updated.phone || '',
+          location: updated.location || '',
+          linkedin_url: updated.linkedin_url || '',
+          github_url: updated.github_url || '',
+          portfolio_url: updated.portfolio_url || '',
+        };
+        setSavedBaseline((prev) => ({
+          ...prev,
+          personal: baselinePersonal,
+        }));
+        setIsEditingPersonal(false);
+        setFeedbackMsg({ type: 'success', text: 'Personal info saved successfully.' });
+        setValidationPopup({
+          title: 'Personal Info Saved',
+          message: 'Your personal information and contact details have been successfully saved.',
+        });
+      } else if (tabId === 'skills') {
+        if (!newSkill.name.trim()) {
+          setFeedbackMsg({ type: 'error', text: 'Please enter a skill name.' });
+          return;
+        }
+        if (!newSkill.category) {
+          setFeedbackMsg({ type: 'error', text: 'Please select a skill category from the dropdown.' });
+          return;
+        }
+        const added = await profileApi.addSkill(newSkill);
+        const skillName = added.name;
+        const skillCat = added.category || 'Technical';
+        setNewSkill({ name: '', category: '', proficiency: 'Intermediate' });
+        await loadProfileAndResumes(true);
+        setFeedbackMsg({ type: 'success', text: `Successfully added "${skillName}"!` });
+        setValidationPopup({
+          title: 'Skill Successfully Added',
+          message: `"${skillName}" was added under ${skillCat} in your candidate profile.`,
+        });
+      } else if (tabId === 'projects') {
+        if (editingProjectId) {
+          if (!editProjectForm.title.trim()) {
+            setFeedbackMsg({ type: 'error', text: 'Project title is required.' });
+            return;
+          }
+          const payload = {
+            title: editProjectForm.title.trim(),
+            role: editProjectForm.role.trim() || null,
+            technologies: editProjectForm.technologies
+              ? editProjectForm.technologies.split(',').map((s) => s.trim()).filter(Boolean)
+              : [],
+            description: editProjectForm.description.trim(),
+            bullets: editProjectForm.bullets
+              ? editProjectForm.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
+              : [],
+            url: editProjectForm.url.trim() || null,
+          };
+          await profileApi.updateProject(editingProjectId, payload);
+          setEditingProjectId(null);
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: `Changes to "${payload.title}" have been successfully saved.` });
+          setValidationPopup({
+            title: 'Project Saved',
+            message: `Changes to "${payload.title}" have been successfully saved.`,
+          });
+        } else if (newProject.title.trim()) {
+          const payload = {
+            title: newProject.title.trim(),
+            role: newProject.role || 'Developer',
+            description: newProject.description || '',
+            technologies: newProject.technologies
+              ? newProject.technologies.split(',').map((s) => s.trim()).filter(Boolean)
+              : [],
+            bullets: newProject.bullets
+              ? newProject.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
+              : [],
+            url: newProject.url || '',
+          };
+          await profileApi.addProject(payload);
+          setNewProject({ title: '', role: '', description: '', technologies: '', bullets: '', url: '' });
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: 'Project added to profile.' });
+          setValidationPopup({
+            title: 'Project Successfully Added',
+            message: `Project "${payload.title}" has been added to your candidate profile.`,
+          });
+        } else if (extractedProject?.title?.trim()) {
+          const payload = {
+            title: extractedProject.title.trim(),
+            role: extractedProject.role || 'Creator / Maintainer',
+            description: extractedProject.description || '',
+            technologies: extractedProject.technologies
+              ? extractedProject.technologies.split(',').map((s) => s.trim()).filter(Boolean)
+              : [],
+            bullets: extractedProject.bullets
+              ? extractedProject.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
+              : [],
+            url: extractedProject.url || githubProjectUrl.trim(),
+          };
+          await profileApi.addProject(payload);
+          setExtractedProject(null);
+          setGithubProjectUrl('');
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: 'GitHub project added to profile!' });
+          setValidationPopup({
+            title: 'Project Successfully Added',
+            message: `Project "${payload.title}" has been added to your candidate profile.`,
+          });
+        } else {
+          setFeedbackMsg({ type: 'error', text: 'No unsaved project changes to save. Enter a project title or edit an existing project.' });
+        }
+      } else if (tabId === 'experience') {
+        if (editingExpId) {
+          if (!editExpForm.company.trim() || !editExpForm.title.trim()) {
+            setFeedbackMsg({ type: 'error', text: 'Company and Job Title are required.' });
+            return;
+          }
+          const payload = {
+            company: editExpForm.company.trim(),
+            title: editExpForm.title.trim(),
+            location: editExpForm.location.trim(),
+            description: editExpForm.description.trim(),
+            bullets: editExpForm.bullets
+              ? editExpForm.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
+              : [],
+            start_date: editExpForm.start_date || null,
+            end_date: editExpForm.is_current ? null : (editExpForm.end_date || null),
+            is_current: editExpForm.is_current,
+          };
+          await profileApi.updateExperience(editingExpId, payload);
+          setEditingExpId(null);
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: `Work experience at "${payload.company}" updated successfully.` });
+          setValidationPopup({
+            title: 'Experience Saved',
+            message: `Work experience at "${payload.company}" updated successfully.`,
+          });
+        } else if (newExperience.company.trim() || newExperience.title.trim()) {
+          if (!newExperience.company.trim() || !newExperience.title.trim()) {
+            setFeedbackMsg({ type: 'error', text: 'Both Company and Job Title are required.' });
+            return;
+          }
+          const payload = {
+            company: newExperience.company.trim(),
+            title: newExperience.title.trim(),
+            location: newExperience.location.trim(),
+            description: newExperience.description.trim(),
+            bullets: newExperience.bullets
+              ? newExperience.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
+              : [],
+            start_date: newExperience.start_date.trim() || null,
+            end_date: newExperience.end_date.trim() || null,
+            is_current: newExperience.is_current,
+          };
+          await profileApi.addExperience(payload);
+          setNewExperience({
+            company: '',
+            title: '',
+            location: '',
+            description: '',
+            bullets: '',
+            start_date: '',
+            end_date: '',
+            is_current: false,
+          });
+          setGithubExpUrl('');
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: 'Experience record added.' });
+          setValidationPopup({
+            title: 'Experience Successfully Added',
+            message: `Role "${payload.title} at ${payload.company}" added to profile.`,
+          });
+        } else {
+          setFeedbackMsg({ type: 'error', text: 'No unsaved experience changes to save. Enter company and title or edit a role.' });
+        }
+      } else if (tabId === 'education') {
+        if (editingEduId) {
+          if (!editEduForm.institution.trim() || !editEduForm.degree.trim()) {
+            setFeedbackMsg({ type: 'error', text: 'Institution and Degree are required.' });
+            return;
+          }
+          await profileApi.updateEducation(editingEduId, editEduForm);
+          setEditingEduId(null);
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: 'Education record updated.' });
+          setValidationPopup({
+            title: 'Education Updated',
+            message: `Successfully updated record for ${editEduForm.degree} at ${editEduForm.institution}.`,
+          });
+        } else if (newEducation.institution.trim() || newEducation.degree.trim()) {
+          if (!newEducation.institution.trim() || !newEducation.degree.trim()) {
+            setFeedbackMsg({ type: 'error', text: 'Both Institution and Degree are required.' });
+            return;
+          }
+          await profileApi.addEducation(newEducation);
+          setNewEducation({ institution: '', degree: '', field_of_study: '', grade: '' });
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: 'Education record added.' });
+          setValidationPopup({
+            title: 'Education Added',
+            message: `Record for ${newEducation.degree} at ${newEducation.institution} added to profile.`,
+          });
+        } else {
+          setFeedbackMsg({ type: 'error', text: 'No unsaved education changes to save.' });
+        }
+      } else if (tabId === 'certifications') {
+        if (editingCertId) {
+          if (!editCertForm.name.trim() || !editCertForm.issuer.trim()) {
+            setFeedbackMsg({ type: 'error', text: 'Certification Name and Issuer are required.' });
+            return;
+          }
+          await profileApi.updateCertification(editingCertId, editCertForm);
+          setEditingCertId(null);
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: 'Certification updated.' });
+          setValidationPopup({
+            title: 'Certification Updated',
+            message: `Successfully updated certification "${editCertForm.name}".`,
+          });
+        } else if (newCert.name.trim() || newCert.issuer.trim()) {
+          if (!newCert.name.trim() || !newCert.issuer.trim()) {
+            setFeedbackMsg({ type: 'error', text: 'Both Certification Name and Issuing Organization are required.' });
+            return;
+          }
+          await profileApi.addCertification(newCert);
+          setNewCert({ name: '', issuer: '', issue_date: '' });
+          await loadProfileAndResumes(true);
+          setFeedbackMsg({ type: 'success', text: 'Certification added.' });
+          setValidationPopup({
+            title: 'Certification Added',
+            message: `Certification "${newCert.name}" from ${newCert.issuer} added to profile.`,
+          });
+        } else {
+          setFeedbackMsg({ type: 'error', text: 'No unsaved certification changes to save.' });
+        }
+      }
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: err?.message || `Failed to save ${tabId}.` });
+    } finally {
+      setSavingTab(false);
+    }
+  };
+
+  const handleUpdatePersonal = async (e) => {
+    e?.preventDefault?.();
+    await handleTabSave('personal');
   };
 
   const handleCancelPersonalEdit = () => {
-    if (profile) {
-      setPersonalForm({
-        headline: profile.headline || '',
-        summary: profile.summary || '',
-        phone: profile.phone || '',
-        location: profile.location || '',
-        linkedin_url: profile.linkedin_url || '',
-        github_url: profile.github_url || '',
-        portfolio_url: profile.portfolio_url || '',
-      });
-      if (profile.phone) {
-        const matched = COUNTRY_CODES.find((c) => profile.phone.startsWith(c.code));
+    if (savedBaseline?.personal && (savedBaseline.personal.headline || savedBaseline.personal.summary || savedBaseline.personal.location || savedBaseline.personal.phone)) {
+      setPersonalForm({ ...savedBaseline.personal });
+      if (savedBaseline.personal.phone) {
+        const matched = COUNTRY_CODES.find((c) => savedBaseline.personal.phone.startsWith(c.code));
         if (matched) {
           setPhoneCountryCode(matched.code);
-          setPhoneDigits(profile.phone.slice(matched.code.length).trim());
+          setPhoneDigits(savedBaseline.personal.phone.slice(matched.code.length).trim());
         } else {
           setPhoneCountryCode('+91');
-          setPhoneDigits(profile.phone.trim());
+          setPhoneDigits(savedBaseline.personal.phone.trim());
         }
       } else {
+        setPhoneCountryCode('+91');
         setPhoneDigits('');
       }
+      setIsEditingPersonal(false);
+    } else {
+      performTabReset('personal');
     }
-    setIsEditingPersonal(false);
   };
 
   const handleAddSkill = async (e) => {
-    e.preventDefault();
-    if (!newSkill.name.trim()) {
-      setFeedbackMsg({ type: 'error', text: 'Please enter a skill name.' });
-      return;
-    }
-    if (!newSkill.category) {
-      setFeedbackMsg({ type: 'error', text: 'Please select a skill category from the dropdown.' });
-      return;
-    }
-    try {
-      const added = await profileApi.addSkill(newSkill);
-      const skillName = added.name;
-      const skillCat = added.category || 'Technical';
-      setNewSkill({ name: '', category: '', proficiency: 'Intermediate' });
-      await loadProfileAndResumes();
-      setFeedbackMsg({ type: 'success', text: `Successfully added "${skillName}"!` });
-      setValidationPopup({
-        title: 'Skill Successfully Added',
-        message: `"${skillName}" was added under ${skillCat} in your candidate profile.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to add skill.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('skills');
   };
 
   const handleDeleteSkill = async (id) => {
     try {
       await profileApi.deleteSkill(id);
-      await loadProfileAndResumes();
+      await loadProfileAndResumes(true);
       setFeedbackMsg({ type: 'success', text: 'Skill removed from profile.' });
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to delete skill.' });
@@ -307,68 +792,19 @@ export default function ProfilePage({ currentUser }) {
   };
 
   const handleSaveExtractedProject = async (e) => {
-    e.preventDefault();
-    if (!extractedProject?.title.trim()) return;
-    try {
-      const payload = {
-        title: extractedProject.title.trim(),
-        role: extractedProject.role || 'Creator / Maintainer',
-        description: extractedProject.description || '',
-        technologies: extractedProject.technologies
-          ? extractedProject.technologies.split(',').map((s) => s.trim()).filter(Boolean)
-          : [],
-        bullets: extractedProject.bullets
-          ? extractedProject.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
-          : [],
-        url: extractedProject.url || githubProjectUrl.trim(),
-      };
-      await profileApi.addProject(payload);
-      setExtractedProject(null);
-      setGithubProjectUrl('');
-      await loadProfileAndResumes();
-      setFeedbackMsg({ type: 'success', text: 'GitHub project added to profile!' });
-      setValidationPopup({
-        title: 'Project Successfully Added',
-        message: `Project "${payload.title}" has been added to your candidate profile.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to save project.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('projects');
   };
 
   const handleAddManualProject = async (e) => {
-    e.preventDefault();
-    if (!newProject.title.trim()) return;
-    try {
-      const payload = {
-        title: newProject.title.trim(),
-        role: newProject.role || 'Developer',
-        description: newProject.description || '',
-        technologies: newProject.technologies
-          ? newProject.technologies.split(',').map((s) => s.trim()).filter(Boolean)
-          : [],
-        bullets: newProject.bullets
-          ? newProject.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
-          : [],
-        url: newProject.url || '',
-      };
-      await profileApi.addProject(payload);
-      setNewProject({ title: '', role: '', description: '', technologies: '', bullets: '', url: '' });
-      await loadProfileAndResumes();
-      setFeedbackMsg({ type: 'success', text: 'Project added to profile.' });
-      setValidationPopup({
-        title: 'Project Successfully Added',
-        message: `Project "${payload.title}" has been added to your candidate profile.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to add project.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('projects');
   };
 
   const handleDeleteProject = async (id) => {
     try {
       await profileApi.deleteProject(id);
-      await loadProfileAndResumes();
+      await loadProfileAndResumes(true);
       setFeedbackMsg({ type: 'success', text: 'Project removed.' });
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to delete project.' });
@@ -388,31 +824,8 @@ export default function ProfilePage({ currentUser }) {
   };
 
   const handleSaveEditProject = async (e) => {
-    e.preventDefault();
-    if (!editProjectForm.title.trim()) return;
-    try {
-      const payload = {
-        title: editProjectForm.title.trim(),
-        role: editProjectForm.role.trim() || null,
-        technologies: editProjectForm.technologies
-          ? editProjectForm.technologies.split(',').map((s) => s.trim()).filter(Boolean)
-          : [],
-        description: editProjectForm.description.trim(),
-        bullets: editProjectForm.bullets
-          ? editProjectForm.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
-          : [],
-        url: editProjectForm.url.trim() || null,
-      };
-      await profileApi.updateProject(editingProjectId, payload);
-      setEditingProjectId(null);
-      await loadProfileAndResumes();
-      setValidationPopup({
-        title: 'Project Saved',
-        message: `Changes to "${payload.title}" have been successfully saved.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Failed to update project.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('projects');
   };
 
   // GitHub extraction for Experience
@@ -448,48 +861,14 @@ export default function ProfilePage({ currentUser }) {
   };
 
   const handleAddExperience = async (e) => {
-    e.preventDefault();
-    if (!newExperience.company.trim() || !newExperience.title.trim()) return;
-    try {
-      const payload = {
-        company: newExperience.company.trim(),
-        title: newExperience.title.trim(),
-        location: newExperience.location.trim(),
-        description: newExperience.description.trim(),
-        bullets: newExperience.bullets
-          ? newExperience.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
-          : [],
-        start_date: newExperience.start_date.trim() || null,
-        end_date: newExperience.end_date.trim() || null,
-        is_current: newExperience.is_current,
-      };
-      await profileApi.addExperience(payload);
-      setNewExperience({
-        company: '',
-        title: '',
-        location: '',
-        description: '',
-        bullets: '',
-        start_date: '',
-        end_date: '',
-        is_current: false,
-      });
-      setGithubExpUrl('');
-      await loadProfileAndResumes();
-      setFeedbackMsg({ type: 'success', text: 'Experience record added.' });
-      setValidationPopup({
-        title: 'Experience Successfully Added',
-        message: `Role "${payload.title} at ${payload.company}" added to profile.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to add experience.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('experience');
   };
 
   const handleDeleteExperience = async (id) => {
     try {
       await profileApi.deleteExperience(id);
-      await loadProfileAndResumes();
+      await loadProfileAndResumes(true);
       setFeedbackMsg({ type: 'success', text: 'Experience record removed.' });
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to delete experience.' });
@@ -511,92 +890,14 @@ export default function ProfilePage({ currentUser }) {
   };
 
   const handleSaveEditExperience = async (e) => {
-    e.preventDefault();
-    if (!editExpForm.company.trim() || !editExpForm.title.trim()) return;
-    try {
-      const payload = {
-        company: editExpForm.company.trim(),
-        title: editExpForm.title.trim(),
-        location: editExpForm.location.trim(),
-        description: editExpForm.description.trim(),
-        bullets: editExpForm.bullets
-          ? editExpForm.bullets.split('\n').map((s) => s.trim()).filter(Boolean)
-          : [],
-        start_date: editExpForm.start_date || null,
-        end_date: editExpForm.is_current ? null : (editExpForm.end_date || null),
-        is_current: editExpForm.is_current,
-      };
-      await profileApi.updateExperience(editingExpId, payload);
-      setEditingExpId(null);
-      await loadProfileAndResumes();
-      setValidationPopup({
-        title: 'Experience Saved',
-        message: `Work experience at "${payload.company}" updated successfully.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Failed to update experience.' });
-    }
-  };
-
-  // Template handlers
-  const handleUploadTemplate = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const lower = file.name.toLowerCase();
-    if (!lower.endsWith('.tex') && !lower.endsWith('.zip')) {
-      setFeedbackMsg({ type: 'error', text: 'Template file must be a .tex file or .zip package.' });
-      return;
-    }
-    setUploadingTemplate(true);
-    setFeedbackMsg({ type: '', text: '' });
-    try {
-      const res = await profileApi.uploadTemplate(file);
-      const tpl = await profileApi.getTemplate();
-      setTemplateInfo(tpl);
-      setFeedbackMsg({ type: 'success', text: res.message || 'Custom LaTeX template activated!' });
-      setValidationPopup({
-        title: 'Custom LaTeX Template Active',
-        message: `Template "${file.name}" has been uploaded and activated. Resumes will now be rendered strictly using this template.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Failed to upload template.' });
-    } finally {
-      setUploadingTemplate(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleDeleteTemplate = async () => {
-    try {
-      await profileApi.deleteTemplate();
-      const tpl = await profileApi.getTemplate();
-      setTemplateInfo(tpl);
-      setFeedbackMsg({ type: 'success', text: 'Reverted to default LaTeX template.' });
-      setValidationPopup({
-        title: 'Reverted to Default Template',
-        message: 'Custom template removed. The system base template is now active.',
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to revert template.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('experience');
   };
 
   // Education & Certification handlers
   const handleAddEducation = async (e) => {
-    e.preventDefault();
-    if (!newEducation.institution.trim() || !newEducation.degree.trim()) return;
-    try {
-      await profileApi.addEducation(newEducation);
-      setNewEducation({ institution: '', degree: '', field_of_study: '', grade: '' });
-      await loadProfileAndResumes();
-      setFeedbackMsg({ type: 'success', text: 'Education record added.' });
-      setValidationPopup({
-        title: 'Education Added',
-        message: `Record for ${newEducation.degree} at ${newEducation.institution} added to profile.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to add education.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('education');
   };
 
   const handleStartEditEducation = (edu) => {
@@ -612,26 +913,14 @@ export default function ProfilePage({ currentUser }) {
   };
 
   const handleSaveEditEducation = async (e) => {
-    e.preventDefault();
-    if (!editEduForm.institution.trim() || !editEduForm.degree.trim()) return;
-    try {
-      await profileApi.updateEducation(editingEduId, editEduForm);
-      setEditingEduId(null);
-      await loadProfileAndResumes();
-      setFeedbackMsg({ type: 'success', text: 'Education record updated.' });
-      setValidationPopup({
-        title: 'Education Updated',
-        message: `Successfully updated record for ${editEduForm.degree} at ${editEduForm.institution}.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to update education.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('education');
   };
 
   const handleDeleteEducation = async (id) => {
     try {
       await profileApi.deleteEducation(id);
-      await loadProfileAndResumes();
+      await loadProfileAndResumes(true);
       setFeedbackMsg({ type: 'success', text: 'Education record removed.' });
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to delete education.' });
@@ -639,20 +928,8 @@ export default function ProfilePage({ currentUser }) {
   };
 
   const handleAddCert = async (e) => {
-    e.preventDefault();
-    if (!newCert.name.trim() || !newCert.issuer.trim()) return;
-    try {
-      await profileApi.addCertification(newCert);
-      setNewCert({ name: '', issuer: '', issue_date: '' });
-      await loadProfileAndResumes();
-      setFeedbackMsg({ type: 'success', text: 'Certification added.' });
-      setValidationPopup({
-        title: 'Certification Added',
-        message: `Certification "${newCert.name}" from ${newCert.issuer} added to profile.`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to add certification.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('certifications');
   };
 
   const handleStartEditCert = (cert) => {
@@ -666,48 +943,56 @@ export default function ProfilePage({ currentUser }) {
   };
 
   const handleSaveEditCert = async (e) => {
-    e.preventDefault();
-    if (!editCertForm.name.trim() || !editCertForm.issuer.trim()) return;
-    try {
-      await profileApi.updateCertification(editingCertId, editCertForm);
-      setEditingCertId(null);
-      await loadProfileAndResumes();
-      setFeedbackMsg({ type: 'success', text: 'Certification updated.' });
-      setValidationPopup({
-        title: 'Certification Updated',
-        message: `Successfully updated certification "${editCertForm.name}".`,
-      });
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to update certification.' });
-    }
+    e?.preventDefault?.();
+    await handleTabSave('certifications');
   };
 
   const handleDeleteCert = async (id) => {
     try {
       await profileApi.deleteCertification(id);
-      await loadProfileAndResumes();
+      await loadProfileAndResumes(true);
       setFeedbackMsg({ type: 'success', text: 'Certification removed.' });
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: 'Failed to delete certification.' });
     }
   };
 
-  const handleResumeUpload = async (e) => {
+  const handleOpenReview = async (resumeId) => {
+    setLoadingReview(true);
+    try {
+      const data = await profileApi.getResumeExtractedData(resumeId);
+      setReviewResumeData(data);
+      setIsReviewModalOpen(true);
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'Failed to load extraction details.' });
+    } finally {
+      setLoadingReview(false);
+    }
+  };
+
+  const handleResumeUpload = async (e, replace = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     setFeedbackMsg({ type: '', text: '' });
     try {
-      const result = await profileApi.uploadResume(file);
+      const result = await profileApi.uploadResume(file, replace);
       setFeedbackMsg({
         type: 'success',
-        text: `Parsed "${result.filename}". ${result.extracted_skills.length} skills added to profile!`,
-      });
-      setValidationPopup({
-        title: 'Resume Parsed',
-        message: `Extracted ${result.extracted_skills.length} skills and candidate records from "${result.filename}".`,
+        text: replace
+          ? `Replaced Master Resume with "${result.filename}". Review extracted information below.`
+          : `Parsed "${result.filename}". Review extracted information below.`,
       });
       await loadProfileAndResumes();
+      if (result.extracted_data) {
+        setReviewResumeData({
+          resume_id: result.resume_id,
+          filename: result.filename,
+          extracted_data: result.extracted_data,
+          comparison: result.comparison,
+        });
+        setIsReviewModalOpen(true);
+      }
     } catch (err) {
       setFeedbackMsg({ type: 'error', text: err.message || 'Failed to upload resume.' });
     } finally {
@@ -733,7 +1018,6 @@ export default function ProfilePage({ currentUser }) {
     { id: 'experience', label: 'Experience', icon: Briefcase, count: profile?.experiences?.length },
     { id: 'education', label: 'Education', icon: GraduationCap, count: profile?.educations?.length },
     { id: 'certifications', label: 'Certifications', icon: Award, count: profile?.certifications?.length },
-    { id: 'template', label: 'LaTeX Template', icon: FileText, count: null },
   ];
 
   if (!currentUser) {
@@ -759,28 +1043,32 @@ export default function ProfilePage({ currentUser }) {
               <span>Master Resume PDF</span>
             </h2>
             <p className="text-xs text-charcoal-muted mt-1">
-              Upload your existing PDF resume
+              {resumes.length > 0
+                ? "Active Master Resume source document (1 resume limit)"
+                : "Upload your existing PDF resume (maximum 1 active Master Resume)"}
             </p>
           </div>
 
-          <label className="btn-primary cursor-pointer flex items-center space-x-2">
-            <Upload className="w-4 h-4" />
-            <span>{uploading ? 'Parsing PDF...' : 'Upload Master PDF'}</span>
-            <input
-              type="file"
-              accept=".pdf"
-              className="hidden"
-              onChange={handleResumeUpload}
-              disabled={uploading}
-            />
-          </label>
+          {resumes.length === 0 && (
+            <label className="btn-primary cursor-pointer flex items-center space-x-2">
+              <Upload className="w-4 h-4" />
+              <span>{uploading ? 'Parsing PDF...' : 'Upload Master PDF'}</span>
+              <input
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={(e) => handleResumeUpload(e, false)}
+                disabled={uploading}
+              />
+            </label>
+          )}
         </div>
 
         {/* Uploaded Resumes List */}
         {resumes.length > 0 && (
           <div className="border-t border-cream-border pt-4">
             <div className="text-xs font-mono font-bold text-charcoal-muted uppercase mb-2">
-              Parsed Source Resumes:
+              Active Master Resume:
             </div>
             <div className="space-y-2">
               {resumes.map((r) => (
@@ -794,13 +1082,39 @@ export default function ProfilePage({ currentUser }) {
                     <span className="text-charcoal-muted">({Math.round(r.file_size / 1024)} KB)</span>
                     <span className="badge-tag bg-emerald-50 text-emerald-800 border-emerald-600">Active</span>
                   </div>
-                  <button
-                    onClick={() => handleDeleteResume(r.id)}
-                    className="text-rose-600 hover:text-rose-800 p-1"
-                    title="Remove Resume"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReview(r.id)}
+                      disabled={loadingReview}
+                      className="btn-secondary text-[11px] py-1 px-2.5 flex items-center space-x-1"
+                      title="Review Extracted Details"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-coral" />
+                      <span>Review Extraction</span>
+                    </button>
+                    <label
+                      className="btn-secondary text-[11px] py-1 px-2.5 flex items-center space-x-1 cursor-pointer"
+                      title="Replace Master Resume PDF"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-coral" />
+                      <span>{uploading ? 'Replacing...' : 'Replace PDF'}</span>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={(e) => handleResumeUpload(e, true)}
+                        disabled={uploading}
+                      />
+                    </label>
+                    <button
+                      onClick={() => handleDeleteResume(r.id)}
+                      className="text-rose-600 hover:text-rose-800 p-1"
+                      title="Remove Resume"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -809,43 +1123,71 @@ export default function ProfilePage({ currentUser }) {
 
         {feedbackMsg.text && (
           <div
-            className={`p-3 text-xs font-mono border-2 ${
+            className={`p-3 text-xs font-mono border-2 flex items-center justify-between ${
               feedbackMsg.type === 'success'
                 ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
                 : 'bg-rose-50 border-rose-500 text-rose-900'
             }`}
           >
-            {feedbackMsg.text}
+            <span>{feedbackMsg.text}</span>
+            <button
+              type="button"
+              onClick={() => setFeedbackMsg({ type: '', text: '' })}
+              className="font-bold ml-2 text-charcoal hover:text-coral"
+              title="Dismiss"
+            >
+              ✕
+            </button>
           </div>
         )}
       </div>
 
       {/* Main Profile Tabs & Editor */}
       <div className="card-brutal space-y-6">
-        <div className="border-b border-cream-border pb-4">
-          <h2 className="text-xl font-bold tracking-tight text-charcoal">
-            Candidate Profile
-          </h2>
-          <p className="text-sm text-charcoal-muted mt-1">
-            Manage your structured experience, projects, and skills.
-          </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-cream-border pb-4">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-charcoal">
+              Candidate Profile
+            </h2>
+            <p className="text-sm text-charcoal-muted mt-1">
+              Manage your structured experience, projects, and skills.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetAll}
+            disabled={savingTab}
+            className="btn-secondary text-xs py-2 px-3.5 flex items-center space-x-1.5 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 transition-colors shadow-sm"
+            title="Discard all unsaved edits across all profile tabs"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-coral" />
+            <span className="font-semibold">Reset All</span>
+          </button>
         </div>
 
         {/* Section Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 border-b border-cream-border pb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 border-b border-cream-border pb-4">
           {sections.map((sec) => {
             const Icon = sec.icon;
             const isCurrent = activeSection === sec.id;
+            const hasContent = hasTabActiveContent(sec.id);
             return (
               <button
                 key={sec.id}
                 onClick={() => setActiveSection(sec.id)}
-                className={`p-2.5 text-xs font-medium border flex flex-col items-center justify-center space-y-1.5 transition-all text-center ${
+                className={`relative p-2.5 text-xs font-medium border flex flex-col items-center justify-center space-y-1.5 transition-all text-center ${
                   isCurrent
                     ? 'bg-charcoal text-white border-charcoal shadow-brutal-sm'
                     : 'bg-white text-charcoal border-cream-border hover:border-charcoal'
                 }`}
               >
+                {hasContent && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white"
+                    title="Form has active content"
+                  />
+                )}
                 <Icon className="w-4 h-4" />
                 <span className="truncate w-full">{sec.label}</span>
                 {sec.count !== null && sec.count !== undefined && (
@@ -854,6 +1196,57 @@ export default function ProfilePage({ currentUser }) {
               </button>
             );
           })}
+        </div>
+
+        {/* Active Tab Reset and Save Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-cream/70 border-2 border-charcoal p-3 shadow-brutal-sm">
+          <div className="flex items-center space-x-2">
+            <span className="font-bold text-xs uppercase tracking-wider text-charcoal font-mono">
+              {sections.find((s) => s.id === activeSection)?.label} Controls
+            </span>
+            {hasTabActiveContent(activeSection) ? (
+              <span className="badge-tag bg-amber-100 text-amber-900 border-amber-600 text-[10px] flex items-center space-x-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>Form Active</span>
+              </span>
+            ) : (
+              <span className="badge-tag bg-slate-100 text-slate-700 border-slate-300 text-[10px]">
+                Form Empty
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => handleTabReset(activeSection)}
+              disabled={savingTab}
+              className="btn-secondary text-xs py-1.5 px-3 flex items-center space-x-1.5 hover:border-charcoal"
+              title={`Clear all editable fields in ${sections.find((s) => s.id === activeSection)?.label}`}
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-charcoal-muted" />
+              <span>Reset</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabSave(activeSection)}
+              disabled={savingTab}
+              className="btn-primary text-xs py-1.5 px-4 flex items-center space-x-1.5"
+              title={`Save changes in ${sections.find((s) => s.id === activeSection)?.label}`}
+            >
+              {savingTab ? (
+                <>
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Tab 1: Personal Info */}
@@ -2229,80 +2622,42 @@ export default function ProfilePage({ currentUser }) {
           </div>
         )}
 
-        {/* Tab 7: Resume Template (LaTeX) */}
-        {activeSection === 'template' && (
-          <div className="bg-cream border-2 border-charcoal p-6 space-y-5 font-mono text-xs">
-            <div>
-              <h3 className="font-bold text-sm text-charcoal uppercase">LaTeX Template Package Manager</h3>
-              <p className="text-charcoal-muted mt-1">
-                Upload your preferred custom LaTeX template (.tex file or .zip package). When provided, PrivateResume compiles your PDF strictly with this template.
-              </p>
+      </div>
+
+      {/* Reset Confirmation Dialog Modal */}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/50 p-4">
+          <div className="bg-white border-2 border-charcoal p-6 shadow-brutal max-w-sm sm:max-w-md w-full space-y-4 font-sans">
+            <div className="flex items-center space-x-2.5 text-charcoal">
+              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+              <h3 className="font-bold text-base text-charcoal">{confirmDialog.title}</h3>
             </div>
-
-            <div className="p-4 bg-white border-2 border-charcoal space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cream-border pb-3">
-                <span className="text-charcoal-muted font-bold uppercase text-[11px]">Active LaTeX Engine Template:</span>
-                {templateInfo?.has_custom_template ? (
-                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-400">
-                    Custom Template Active: {templateInfo.template_name || 'main.tex'}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-bold bg-cream text-charcoal border border-charcoal">
-                    System Default Template (Modern Editorial)
-                  </span>
-                )}
-              </div>
-
-              {/* Upload New Template (.tex or .zip) */}
-              <div className="space-y-2">
-                <label className="block text-[11px] font-bold uppercase text-charcoal">
-                  Upload Custom LaTeX Template (.tex or .zip package)
-                </label>
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <input
-                    type="file"
-                    accept=".tex,.zip"
-                    onChange={handleUploadTemplate}
-                    disabled={uploadingTemplate}
-                    className="w-full text-xs file:mr-3 file:py-2 file:px-3 file:border-2 file:border-charcoal file:text-xs file:font-bold file:bg-white file:text-charcoal hover:file:bg-cream cursor-pointer disabled:opacity-50"
-                  />
-                  {uploadingTemplate && (
-                    <span className="text-xs text-coral font-bold shrink-0 animate-pulse">Uploading...</span>
-                  )}
-                </div>
-                <p className="text-[10px] text-charcoal-muted">
-                  Accepts a single <code>.tex</code> document or a <code>.zip</code> package containing style files (<code>.cls</code>, <code>.sty</code>) alongside <code>main.tex</code>.
-                </p>
-              </div>
-
-              {/* Active Template Controls */}
-              {templateInfo?.has_custom_template && (
-                <div className="pt-3 border-t border-cream-border flex justify-between items-center">
-                  <div className="space-y-0.5">
-                    <div className="font-bold text-xs text-charcoal flex items-center space-x-1.5">
-                      <FileText className="w-3.5 h-3.5 text-coral" />
-                      <span>{templateInfo.template_name || 'Custom LaTeX Template'}</span>
-                    </div>
-                    {templateInfo.template_size && (
-                      <div className="text-[10px] text-charcoal-muted">
-                        Size: {(templateInfo.template_size / 1024).toFixed(1)} KB
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleDeleteTemplate}
-                    className="px-3 py-1.5 border border-charcoal bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs flex items-center space-x-1"
-                    title="Remove custom template and revert to default"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Revert to Default Template</span>
-                  </button>
-                </div>
-              )}
+            <p className="text-xs text-charcoal-muted leading-relaxed font-mono">
+              {confirmDialog.message}
+            </p>
+            <div className="pt-2 flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDialog(null)}
+                className="btn-secondary text-xs py-2 px-4"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const action = confirmDialog.onConfirm;
+                  setConfirmDialog(null);
+                  if (action) action();
+                }}
+                className="btn-primary bg-coral hover:bg-coral-dark text-white text-xs py-2 px-4"
+              >
+                {confirmDialog.confirmLabel || 'Confirm Reset'}
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Validation Pop-up Modal */}
       {validationPopup && (
@@ -2326,6 +2681,23 @@ export default function ProfilePage({ currentUser }) {
           </div>
         </div>
       )}
+      {/* Review Extraction Modal */}
+      <ReviewExtractionModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        resumeData={reviewResumeData}
+        onApplied={async (summary) => {
+          await loadProfileAndResumes();
+          setFeedbackMsg({
+            type: 'success',
+            text: summary.message || 'Extracted data successfully applied to candidate profile.',
+          });
+          setValidationPopup({
+            title: 'Profile Updated from Master Resume',
+            message: `Applied extracted sections to your candidate profile. Added ${summary.counts?.skills_added || 0} skills, ${summary.counts?.projects_added || 0} projects, and updated contact info.`,
+          });
+        }}
+      />
     </div>
   );
 }

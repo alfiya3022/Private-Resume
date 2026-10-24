@@ -12,10 +12,10 @@ export const artifactsApi = {
   },
 
   getPdfUrl(resumeId) {
-    return `/api/v1/tailored-resumes/${resumeId}/pdf`;
+    return `${api.baseUrl}/tailored-resumes/${resumeId}/pdf`;
   },
 
   getTexUrl(resumeId) {
-    return `/api/v1/tailored-resumes/${resumeId}/tex`;
+    return `${api.baseUrl}/tailored-resumes/${resumeId}/tex`;
   },
 };

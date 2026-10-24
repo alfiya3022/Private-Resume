@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.core.database import Base, get_db
+from app.core.config import settings
 
 # Create an in-memory SQLite engine for tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -53,3 +54,11 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+@pytest.fixture(autouse=True)
+def isolate_test_storage(monkeypatch, tmp_path):
+    """Isolates artifact and template storage per test to prevent state bleeding between tests."""
+    test_storage = tmp_path / "storage"
+    test_storage.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(settings, "STORAGE_DIR", str(test_storage))
+    yield test_storage

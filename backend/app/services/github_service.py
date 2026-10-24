@@ -30,7 +30,6 @@ class GitHubService:
 
         result: Dict[str, Any] = {
             "title": fallback_title,
-            "role": "Creator / Maintainer",
             "description": f"Open-source software project hosted on GitHub ({owner}/{repo}).",
             "technologies": [],
             "bullets": [],

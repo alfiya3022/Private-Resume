@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('PrivateResume E2E Candidate Workflow', () => {
   test('1. System Health & Branding Smoke Test', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('http://localhost:5174/');
 
     // Check Sidebar Branding
     await expect(page.locator('aside').getByText('PrivateResume', { exact: true })).toBeVisible();
@@ -17,7 +17,7 @@ test.describe('PrivateResume E2E Candidate Workflow', () => {
   });
 
   test('2. Complete End-to-End Candidate Journey', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('http://localhost:5174/');
 
     // 1. Sign In
     const authNavButton = page.locator('aside button').last();
@@ -40,8 +40,8 @@ test.describe('PrivateResume E2E Candidate Workflow', () => {
     // 2. Profile Inspection
     await page.getByRole('button', { name: 'Profile' }).click();
     await expect(page.getByText('Master Resume PDF', { exact: true })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: 'Personal Info', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Skills', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Personal Info', exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /^Skills/ })).toBeVisible();
 
     // 3. Workspace Inspection
     await page.getByRole('button', { name: 'Workspace' }).click();

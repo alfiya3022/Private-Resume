@@ -1,7 +1,7 @@
 # PrivateResume - Development Plan & Milestone Execution
 
-**Status**: 100% Complete & Verified (Epics 0 through 14)  
-**Verification**: 49 Automated Tests Passing + Vite Production Build Passing + Full E2E Workflow Verified
+**Status**: 100% Complete & Verified (Epics 0 through 27)  
+**Verification**: 78 Automated Backend Pytest Tests (100% Pass) + 4 Playwright E2E Tests + Clean Production Vite Build
 
 ---
 
@@ -41,6 +41,19 @@ A milestone is marked complete only when:
 | **Epic 12** | UX Polish & Stage 4/5 | ✅ Done | Full inline CRUD for Experience/Projects, calendar datepickers, Stage 5 clean PDF view without noisy modals. |
 | **Epic 13** | Custom Template Engine | ✅ Done | Personal LaTeX template package manager (`.tex`/`.zip`), multi-cycle isolation, "New Job Intake" reset. |
 | **Epic 14** | Compilation Hardening | ✅ Done | `-halt-on-error` & `-disable-installer` pdflatex flags, `\begin{rSection}` AST support, comprehensive JD taxonomy. |
+| **Epic 15** | LaTeX Security & Decoupled Downloads | ✅ Done | Authenticated token downloads, candidate-driven "Log to Tracker" action, ValidationService hardening. |
+| **Epic 16** | Containerized Proxy Resolution | ✅ Done | Dynamic Vite proxy configuration for containerized (`/.dockerenv`) vs local hosts. |
+| **Epic 17** | Custom Template Injection Hardening | ✅ Done | Lambda escape functions eliminating Python regex escape crashes, contact info injection, rSection support. |
+| **Epic 18** | Single Fixed Default Template | ✅ Done | Standardized on `data_science_tech_resume_template` with Source Sans Pro and highlight blue styling. |
+| **Epic 19** | SWE Resume Default & 6-Section Order | ✅ Done | Exclusive SWE resume ZIP template (`media_1792600889842_f4354a6c.zip`) with strict dynamic 6-section ordering. |
+| **Epic 20** | Project Dates & Certificate Links | ✅ Done | Right-aligned dates (`\hfill`), start/end/ongoing fields for projects, clickable `[Certificate]` links. |
+| **Epic 21** | Header LinkedIn & 3-Line Education | ✅ Done | Underlined LinkedIn below GitHub in header, 3-line education layout, PDF.js yellow hover link preview. |
+| **Epic 22** | Visible LinkedIn & Link Overlay Remediation | ✅ Done | Template variable injection fix, coordinate-exact PDF.js interactive DOM link overlay with neo-brutal hover. |
+| **Epic 23** | Master Resume Integration & Resolution | ✅ Done | Alembic migration 010 (`extracted_data`), pre-generation ResolutionService, ReviewExtractionModal. |
+| **Epic 24** | Targeted Extraction & Ollama Structuring | ✅ Done | Multi-role work history, hybrid structuring via `qwen3:4b-instruct`, strict token grounding against source text. |
+| **Epic 25** | Projects Extraction Pipeline Improvement | ✅ Done | Multi-line title/tech/bullet separation, link badge stripping, robust date range regex, dual URLs. |
+| **Epic 26** | Single Master Resume & Auto-Dismissal | ✅ Done | Alembic migration 011 (`uq_master_resumes_user_id`), `replace=true` upload workflow, 4-second notification auto-dismissal. |
+| **Epic 27** | Persisted Profile Reset & Draft Clearing | ✅ Done | Atomic `DELETE /api/v1/profile/sections/{section}` & `/api/v1/profile/reset-all`, DB deletion, form clearing across reloads, Master Resume PDF preservation. |
 
 ---
 

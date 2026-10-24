@@ -25,3 +25,24 @@ class JobRequirement(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    @property
+    def min_years(self):
+        if self.raw_analysis and isinstance(self.raw_analysis, dict) and "min_years" in self.raw_analysis:
+            return self.raw_analysis.get("min_years")
+        try:
+            return int(self.experience_years) if self.experience_years is not None else None
+        except ValueError:
+            return None
+
+    @property
+    def max_years(self):
+        if self.raw_analysis and isinstance(self.raw_analysis, dict):
+            return self.raw_analysis.get("max_years")
+        return None
+
+    @property
+    def experience_range(self):
+        if self.raw_analysis and isinstance(self.raw_analysis, dict) and self.raw_analysis.get("experience_range"):
+            return self.raw_analysis.get("experience_range")
+        return self.experience_years

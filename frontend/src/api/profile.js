@@ -118,36 +118,15 @@ export const profileApi = {
     });
   },
 
-  // Custom LaTeX Template
-  async getTemplate() {
-    return api.request('/profile/template');
-  },
-
-  async uploadTemplate(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const token = api.getToken();
-    const headers = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${api.baseUrl}/profile/template`, {
-      method: 'POST',
-      headers,
-      body: formData,
+  // Profile Section & All Reset
+  async resetSection(section) {
+    return api.request(`/profile/sections/${section}`, {
+      method: 'DELETE',
     });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data?.detail || 'Failed to upload template');
-    }
-    return data;
   },
 
-  async deleteTemplate() {
-    return api.request('/profile/template', {
+  async resetAll() {
+    return api.request('/profile/reset-all', {
       method: 'DELETE',
     });
   },
@@ -157,7 +136,7 @@ export const profileApi = {
     return api.request('/resumes');
   },
 
-  async uploadResume(file) {
+  async uploadResume(file, replace = false) {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -167,7 +146,8 @@ export const profileApi = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${api.baseUrl}/resumes`, {
+    const url = replace ? `${api.baseUrl}/resumes?replace=true` : `${api.baseUrl}/resumes`;
+    const response = await fetch(url, {
       method: 'POST',
       headers,
       body: formData,
@@ -183,6 +163,20 @@ export const profileApi = {
   async deleteResume(resumeId) {
     return api.request(`/resumes/${resumeId}`, {
       method: 'DELETE',
+    });
+  },
+
+  async getResumeExtractedData(resumeId) {
+    return api.request(`/resumes/${resumeId}/extracted-data`);
+  },
+
+  async applyExtractedData(resumeId, { sections, overwrite_existing } = {}) {
+    return api.request(`/resumes/${resumeId}/apply-to-profile`, {
+      method: 'POST',
+      body: JSON.stringify({
+        sections: sections || undefined,
+        overwrite_existing: !!overwrite_existing,
+      }),
     });
   },
 };

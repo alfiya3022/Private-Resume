@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
@@ -32,7 +33,7 @@ def setup_candidate_and_job(client: TestClient, email: str, name: str):
     )
 
     client.post(
-        "/api/v1/profile/experience",
+        "/api/v1/profile/experiences",
         json={
             "company": "Nexus Systems",
             "title": "Principal Architect",
@@ -45,7 +46,7 @@ def setup_candidate_and_job(client: TestClient, email: str, name: str):
     )
 
     client.post(
-        "/api/v1/profile/education",
+        "/api/v1/profile/educations",
         json={
             "institution": "University of California, Berkeley",
             "degree": "B.S. in Computer Science",
@@ -116,12 +117,15 @@ def test_successful_validation_and_report_retrieval(client: TestClient):
 
     assert "standard_headings" in checks
     assert checks["standard_headings"]["status"] in ["PASS", "WARN"]
+  
 
     assert "placeholders" in checks
     assert checks["placeholders"]["status"] == "PASS"
 
     assert "integrity_audit" in checks
-    assert checks["integrity_audit"]["status"] == "PASS"
+    assert checks["integrity_audit"]["status"] == "WARN"
+    assert checks["integrity_audit"]["details"]["verification_performed"] is False
+    assert "not implemented" in checks["integrity_audit"]["message"]
 
     # 3. Retrieve validation via GET
     get_res = client.get(
@@ -160,3 +164,65 @@ def test_validation_user_isolation(client: TestClient):
     # User B cannot read User A's validation
     get_res = client.get(f"/api/v1/tailored-resumes/{resume_id_a}/validation", headers=headers_b)
     assert get_res.status_code == 404
+
+
+def test_validation_detects_placeholders(client: TestClient):
+    headers, resume_id = setup_candidate_and_job(
+        client, "placeholder_user@test.local", "Placeholder Candidate"
+    )
+
+    get_res = client.get(f"/api/v1/tailored-resumes/{resume_id}", headers=headers)
+    assert get_res.status_code == 200
+    resume_data = get_res.json()
+    content = resume_data["content"]
+
+    content["summary"] = "Experienced engineer targeting {{target_role}} at [Company Name]. TODO: add metrics."
+
+    put_res = client.put(
+        f"/api/v1/tailored-resumes/{resume_id}",
+        json={"content": content, "target_role": "Lead Architect", "save_as_new_version": False},
+        headers=headers,
+    )
+    assert put_res.status_code == 200
+    target_resume_id = put_res.json()["id"]
+
+    gen_res = client.post(
+        f"/api/v1/tailored-resumes/{target_resume_id}/generate-pdf", headers=headers
+    )
+    assert gen_res.status_code == 200
+
+    val_res = client.post(
+        f"/api/v1/tailored-resumes/{target_resume_id}/validate", headers=headers
+    )
+    assert val_res.status_code == 200
+    report = val_res.json()
+
+    assert report["checks"]["placeholders"]["status"] == "FAIL"
+    tokens = report["checks"]["placeholders"]["details"]["tokens"]
+    assert any("TODO" in t or "Company" in t or "target_role" in t for t in tokens)
+
+
+def test_validation_handles_corrupted_pdf_gracefully(client: TestClient):
+    headers, resume_id = setup_candidate_and_job(
+        client, "corrupt_pdf_user@test.local", "Corrupt Candidate"
+    )
+
+    gen_res = client.post(
+        f"/api/v1/tailored-resumes/{resume_id}/generate-pdf", headers=headers
+    )
+    assert gen_res.status_code == 200
+
+    art_res = client.get(f"/api/v1/tailored-resumes/{resume_id}/artifacts", headers=headers)
+    assert art_res.status_code == 200
+    pdf_artifact = next(a for a in art_res.json() if a["artifact_type"] == "pdf")
+    pdf_path = Path(pdf_artifact["file_path"])
+    pdf_path.write_bytes(b"NOT_A_VALID_PDF_HEADER_DATA_1234567890")
+
+    val_res = client.post(
+        f"/api/v1/tailored-resumes/{resume_id}/validate", headers=headers
+    )
+    assert val_res.status_code == 200
+    report = val_res.json()
+    assert report["checks"]["pdf_generation"]["status"] == "FAIL"
+    assert report["checks"]["pdf_generation"]["message"] == "Unable to open or inspect PDF document structure."
+    assert str(pdf_path) not in report["checks"]["pdf_generation"]["message"]

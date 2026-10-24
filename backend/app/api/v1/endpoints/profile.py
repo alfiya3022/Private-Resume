@@ -252,20 +252,122 @@ def delete_certification(
         )
 
 
+# Section Reset and Global Reset Endpoints
+@router.delete("/sections/{section}", response_model=ProfileResponse)
+def reset_profile_section(
+    section: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all persisted records in a specific profile section for the authenticated user."""
+    return profile_service.reset_section(db, current_user.id, section)
+
+
+@router.delete("/reset-all", response_model=ProfileResponse)
+def reset_all_profile_sections(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all persisted records across all six profile sections for the authenticated user."""
+    return profile_service.reset_all(db, current_user.id)
+
+
+@router.delete("/personal", response_model=ProfileResponse)
+def reset_personal_section(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Clear all personal metadata fields for the authenticated user."""
+    return profile_service.reset_section(db, current_user.id, "personal")
+
+
+@router.delete("/skills", response_model=ProfileResponse)
+def reset_skills_section(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all verified candidate skills for the authenticated user."""
+    return profile_service.reset_section(db, current_user.id, "skills")
+
+
+@router.delete("/projects", response_model=ProfileResponse)
+def reset_projects_section(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all projects for the authenticated user."""
+    return profile_service.reset_section(db, current_user.id, "projects")
+
+
+@router.delete("/experiences", response_model=ProfileResponse)
+def reset_experiences_section(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all experience records for the authenticated user."""
+    return profile_service.reset_section(db, current_user.id, "experiences")
+
+
+@router.delete("/educations", response_model=ProfileResponse)
+def reset_educations_section(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all education records for the authenticated user."""
+    return profile_service.reset_section(db, current_user.id, "educations")
+
+
+@router.delete("/certifications", response_model=ProfileResponse)
+def reset_certifications_section(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all certification records for the authenticated user."""
+    return profile_service.reset_section(db, current_user.id, "certifications")
+
+
+@router.delete("", response_model=ProfileResponse)
+def delete_entire_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reset all profile sections for the authenticated user."""
+    return profile_service.reset_all(db, current_user.id)
+
+
 # Custom LaTeX Template Endpoints
+MAX_TEMPLATE_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
 @router.post("/template")
 async def upload_custom_template(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Uploads a custom LaTeX template (.tex or .zip package) for candidate PDF compilation."""
-    content = await file.read()
+    try:
+        # Read at most one byte beyond the limit so oversized uploads are rejected
+        # without loading the complete file into memory.
+        content = await file.read(MAX_TEMPLATE_UPLOAD_BYTES + 1)
+    finally:
+        await file.close()
+
+    if len(content) > MAX_TEMPLATE_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Template uploads must be 10 MB or smaller.",
+        )
+
     if not content:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded file is empty.",
         )
-    return latex_service.save_user_template(current_user.id, file.filename, content)
+
+    result = latex_service.save_user_template(current_user.id, file.filename, content)
+    latex_service.invalidate_user_artifacts(db, current_user.id)
+    return result
 
 
 @router.get("/template")
@@ -279,7 +381,9 @@ def get_custom_template(
 @router.delete("/template")
 def delete_custom_template(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Deletes custom template and reverts to system default Modern Editorial."""
     latex_service.delete_user_template(current_user.id)
+    latex_service.invalidate_user_artifacts(db, current_user.id)
     return {"status": "success", "message": "Reverted to default LaTeX template."}

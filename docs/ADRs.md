@@ -134,3 +134,20 @@
 **Decision:** When a candidate downloads a tailored PDF in Stage 5, the system automatically registers the application in the Applications pipeline (status `applied`) and resets the workspace draft state to Stage 1. Filter active workspace queries by `status=active` to prevent applied jobs from persisting in active draft views.
 
 **Reason:** Enforces a clean slate for subsequent job applications and eliminates cognitive clutter.
+
+## ADR-014 - Layout-Aware Master Resume Ingestion with PyMuPDF4LLM and Markdown Normalization
+**Status:** Accepted
+
+**Context:** PyMuPDF raw stream text extraction (`page.get_text("text")`) lacks layout and block awareness in modern resumes containing multi-column layouts, horizontal section dividing lines, and boxed metadata. In real-world resumes, physical stream order often led to header interleaved text (e.g., location extracted as candidate name) and missed section breaks.
+
+**Decision:** Integrate `pymupdf4llm.to_markdown` as the primary text extraction engine within `PdfService.extract_text_from_pdf` (preserving `extract_text_from_pdf_plain` for legacy comparison), paired with a deterministic `clean_resume_markdown` post-processing pipeline that:
+1. Replaces `<br>` table cell line breaks with `\n` to restore multi-line paragraph boundaries.
+2. Strips HTML wrapper tags (`<u>`, `</u>`, etc.) without disturbing text.
+3. Removes table row borders (`|---|`) and strips line-boundary pipes while preserving interior pipes (`|`) used in role titles and tech lists.
+4. Strips markdown syntax (headers `#`, bold `**`, strikethrough `~~`, italics `*`/`_`, horizontal rules) to match the plain text expectations of `segment_sections` and downstream section extractors.
+5. Normalizes bullet glyphs (`[•●▪◦*\ufffd]`) into standard `- ` markers and joins hyphenated line breaks.
+
+**Reason:** Preserves the existing `extract_text_from_pdf(file_path: str) -> str` signature and downstream regex parser contracts without requiring architectural changes, while significantly improving candidate name recognition, section segmentation, and bullet structure.
+
+**Alternatives considered:** Raw PyMuPDF4LLM Markdown without cleaning (rejected: markdown headers `#` and table pipes `|` broke regex heading detection), Docling / OCR (rejected: excessive dependencies violating frozen stack boundaries and local-first privacy principles).
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Briefcase,
   Calendar,
@@ -15,31 +15,94 @@ import {
   Trash2,
   XCircle,
   FileText,
-} from 'lucide-react';
-import { applicationsApi } from '../api/applications';
-import { artifactsApi } from '../api/artifacts';
+} from "lucide-react";
+import { api } from "../api/client";
+import { applicationsApi } from "../api/applications";
+import { artifactsApi } from "../api/artifacts";
 
 const STATUS_CONFIG = {
-  applied: { label: 'Applied', color: 'bg-blue-50 text-blue-800 border-blue-500' },
-  interviewing: { label: 'Interviewing', color: 'bg-amber-50 text-amber-800 border-amber-500' },
-  offer: { label: 'Offer Received', color: 'bg-emerald-50 text-emerald-800 border-emerald-600' },
-  rejected: { label: 'Declined', color: 'bg-rose-50 text-rose-800 border-rose-500' },
-  draft: { label: 'Draft', color: 'bg-gray-50 text-gray-700 border-gray-400' },
-  archived: { label: 'Archived', color: 'bg-cream-bg text-charcoal-muted border-charcoal-muted' },
+  applied: {
+    label: "Applied",
+    color: "bg-blue-50 text-blue-800 border-blue-500",
+  },
+  interviewing: {
+    label: "Interviewing",
+    color: "bg-amber-50 text-amber-800 border-amber-500",
+  },
+  offer: {
+    label: "Offer Received",
+    color: "bg-emerald-50 text-emerald-800 border-emerald-600",
+  },
+  rejected: {
+    label: "Declined",
+    color: "bg-rose-50 text-rose-800 border-rose-500",
+  },
+  draft: { label: "Draft", color: "bg-gray-50 text-gray-700 border-gray-400" },
+  archived: {
+    label: "Archived",
+    color: "bg-cream-bg text-charcoal-muted border-charcoal-muted",
+  },
 };
 
 export default function ApplicationsPage({ currentUser }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  // Auto-dismiss green success notifications after 4 seconds
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => {
+        setSuccessMsg("");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
 
   // Editing notes state
   const [editingNotesId, setEditingNotesId] = useState(null);
-  const [notesInput, setNotesInput] = useState('');
+  const [notesInput, setNotesInput] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const handleDownloadPdf = async (app) => {
+    if (!app?.tailored_resume?.id) return;
+    setDownloadingId(app.id);
+    setErrorMsg("");
+    try {
+      const token = api.getToken();
+      const companyClean = app.job?.company
+        ? app.job.company.replace(/\s+/g, "_")
+        : "Resume";
+      const filename = `Application_${companyClean}.pdf`;
+      const response = await fetch(
+        artifactsApi.getPdfUrl(app.tailored_resume.id),
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.detail || "Failed to download PDF");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to download PDF.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     loadApplications();
@@ -47,12 +110,14 @@ export default function ApplicationsPage({ currentUser }) {
 
   const loadApplications = async () => {
     setLoading(true);
-    setErrorMsg('');
+    setErrorMsg("");
     try {
-      const data = await applicationsApi.getApplications(statusFilter === 'all' ? null : statusFilter);
+      const data = await applicationsApi.getApplications(
+        statusFilter === "all" ? null : statusFilter,
+      );
       setApplications(data || []);
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to load applications.');
+      setErrorMsg(err.message || "Failed to load applications.");
       setApplications([]);
     } finally {
       setLoading(false);
@@ -61,49 +126,59 @@ export default function ApplicationsPage({ currentUser }) {
 
   const handleStatusChange = async (appId, newStatus) => {
     try {
-      const updated = await applicationsApi.updateApplication(appId, { status: newStatus });
-      setApplications((prev) => prev.map((a) => (a.id === appId ? updated : a)));
-      setSuccessMsg(`Status updated to ${STATUS_CONFIG[newStatus]?.label || newStatus}.`);
+      const updated = await applicationsApi.updateApplication(appId, {
+        status: newStatus,
+      });
+      setApplications((prev) =>
+        prev.map((a) => (a.id === appId ? updated : a)),
+      );
+      setSuccessMsg(
+        `Status updated to ${STATUS_CONFIG[newStatus]?.label || newStatus}.`,
+      );
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to update status.');
+      setErrorMsg(err.message || "Failed to update status.");
     }
   };
 
   const handleOpenNotes = (app) => {
     setEditingNotesId(app.id);
-    setNotesInput(app.notes || '');
+    setNotesInput(app.notes || "");
   };
 
   const handleSaveNotes = async (appId) => {
     setSavingNotes(true);
     try {
-      const updated = await applicationsApi.updateApplication(appId, { notes: notesInput });
-      setApplications((prev) => prev.map((a) => (a.id === appId ? updated : a)));
+      const updated = await applicationsApi.updateApplication(appId, {
+        notes: notesInput,
+      });
+      setApplications((prev) =>
+        prev.map((a) => (a.id === appId ? updated : a)),
+      );
       setEditingNotesId(null);
-      setSuccessMsg('Application notes saved.');
+      setSuccessMsg("Application notes saved.");
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to save notes.');
+      setErrorMsg(err.message || "Failed to save notes.");
     } finally {
       setSavingNotes(false);
     }
   };
 
   const handleDelete = async (appId) => {
-    if (!window.confirm('Delete this application record?')) return;
+    if (!window.confirm("Delete this application record?")) return;
     try {
       await applicationsApi.deleteApplication(appId);
       setApplications((prev) => prev.filter((a) => a.id !== appId));
-      setSuccessMsg('Application deleted.');
+      setSuccessMsg("Application deleted.");
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to delete application.');
+      setErrorMsg(err.message || "Failed to delete application.");
     }
   };
 
   const filteredApps = applications.filter((app) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    const company = (app.job?.company || '').toLowerCase();
-    const title = (app.job?.title || '').toLowerCase();
+    const company = (app.job?.company || "").toLowerCase();
+    const title = (app.job?.title || "").toLowerCase();
     return company.includes(q) || title.includes(q);
   });
 
@@ -157,19 +232,23 @@ export default function ApplicationsPage({ currentUser }) {
 
         {/* Filter Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 border-t border-cream-border pt-3">
-          {['all', 'applied', 'interviewing', 'offer', 'rejected', 'draft'].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1 text-xs border transition-all ${
-                statusFilter === st
-                  ? 'bg-charcoal text-white border-charcoal font-bold'
-                  : 'bg-white text-charcoal border-cream-border hover:border-charcoal'
-              }`}
-            >
-              {st === 'all' ? 'All Applications' : STATUS_CONFIG[st]?.label || st}
-            </button>
-          ))}
+          {["all", "applied", "interviewing", "offer", "rejected", "draft"].map(
+            (st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-3 py-1 text-xs border transition-all ${
+                  statusFilter === st
+                    ? "bg-charcoal text-white border-charcoal font-bold"
+                    : "bg-white text-charcoal border-cream-border hover:border-charcoal"
+                }`}
+              >
+                {st === "all"
+                  ? "All Applications"
+                  : STATUS_CONFIG[st]?.label || st}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
@@ -177,13 +256,17 @@ export default function ApplicationsPage({ currentUser }) {
       {errorMsg && (
         <div className="p-3 bg-rose-50 border-2 border-rose-600 text-rose-900 text-xs flex justify-between items-center">
           <span>{errorMsg}</span>
-          <button onClick={() => setErrorMsg('')} className="font-bold ml-2">✕</button>
+          <button onClick={() => setErrorMsg("")} className="font-bold ml-2">
+            ✕
+          </button>
         </div>
       )}
       {successMsg && (
         <div className="p-3 bg-emerald-50 border-2 border-emerald-600 text-emerald-900 text-xs flex justify-between items-center">
           <span>{successMsg}</span>
-          <button onClick={() => setSuccessMsg('')} className="font-bold ml-2">✕</button>
+          <button onClick={() => setSuccessMsg("")} className="font-bold ml-2">
+            ✕
+          </button>
         </div>
       )}
 
@@ -196,9 +279,11 @@ export default function ApplicationsPage({ currentUser }) {
       ) : filteredApps.length === 0 ? (
         <div className="card-brutal bg-white text-center py-16 space-y-3 border-2 border-charcoal">
           <Briefcase className="w-8 h-8 text-charcoal-muted mx-auto" />
-          <h3 className="text-sm font-bold uppercase text-charcoal">No Applications Found</h3>
+          <h3 className="text-sm font-bold uppercase text-charcoal">
+            No Applications Found
+          </h3>
           <p className="text-xs text-charcoal-muted max-w-sm mx-auto">
-            {statusFilter === 'all'
+            {statusFilter === "all"
               ? 'Complete a resume in the Workspace and click "Log Application" to start tracking.'
               : `No applications with status "${statusFilter}".`}
           </p>
@@ -217,12 +302,18 @@ export default function ApplicationsPage({ currentUser }) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cream-border pb-3">
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="font-bold text-sm text-charcoal">{app.job?.title || 'Target Role'}</span>
+                      <span className="font-bold text-sm text-charcoal">
+                        {app.job?.title || "Target Role"}
+                      </span>
                       <span className="text-xs text-charcoal-muted">•</span>
-                      <span className="font-semibold text-xs text-charcoal">{app.job?.company || 'Company'}</span>
+                      <span className="font-semibold text-xs text-charcoal">
+                        {app.job?.company || "Company"}
+                      </span>
                     </div>
                     {app.job?.location && (
-                      <span className="text-[11px] text-charcoal-muted block mt-0.5">{app.job.location}</span>
+                      <span className="text-[11px] text-charcoal-muted block mt-0.5">
+                        {app.job.location}
+                      </span>
                     )}
                   </div>
 
@@ -230,7 +321,9 @@ export default function ApplicationsPage({ currentUser }) {
                     {/* Status Dropdown */}
                     <select
                       value={app.status}
-                      onChange={(e) => handleStatusChange(app.id, e.target.value)}
+                      onChange={(e) =>
+                        handleStatusChange(app.id, e.target.value)
+                      }
                       className={`text-xs font-mono font-bold py-1 px-2.5 border-2 ${cfg.color} cursor-pointer`}
                     >
                       <option value="applied">Applied</option>
@@ -255,7 +348,9 @@ export default function ApplicationsPage({ currentUser }) {
                   {/* Applied Date */}
                   <div className="flex items-center space-x-2 text-charcoal-muted">
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Applied: {new Date(app.applied_date).toLocaleDateString()}</span>
+                    <span>
+                      Applied: {new Date(app.applied_date).toLocaleDateString()}
+                    </span>
                   </div>
 
                   {/* Linked Resume Version & PDF Download */}
@@ -263,19 +358,28 @@ export default function ApplicationsPage({ currentUser }) {
                     <FileText className="w-3.5 h-3.5 text-coral" />
                     {app.tailored_resume ? (
                       <div className="flex items-center space-x-1.5">
-                        <span className="font-bold text-charcoal">v{app.tailored_resume.version_number}</span>
-                        <a
-                          href={artifactsApi.getPdfUrl(app.tailored_resume.id)}
-                          download={`Application_${app.job?.company || 'Resume'}.pdf`}
-                          className="text-coral hover:underline inline-flex items-center space-x-0.5 text-[11px]"
+                        <span className="font-bold text-charcoal">
+                          v{app.tailored_resume.version_number}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadPdf(app)}
+                          disabled={downloadingId === app.id}
+                          className="text-coral hover:underline inline-flex items-center space-x-0.5 text-[11px] disabled:opacity-50"
                           title="Download submitted PDF"
                         >
                           <Download className="w-3 h-3 ml-1" />
-                          <span>PDF</span>
-                        </a>
+                          <span>
+                            {downloadingId === app.id
+                              ? "Downloading..."
+                              : "PDF"}
+                          </span>
+                        </button>
                       </div>
                     ) : (
-                      <span className="text-charcoal-muted text-[11px]">No specific snapshot</span>
+                      <span className="text-charcoal-muted text-[11px]">
+                        No specific snapshot
+                      </span>
                     )}
                   </div>
 
@@ -286,7 +390,7 @@ export default function ApplicationsPage({ currentUser }) {
                       className="text-xs text-charcoal hover:underline inline-flex items-center space-x-1"
                     >
                       <MessageSquare className="w-3 h-3 text-charcoal-muted" />
-                      <span>{app.notes ? 'Edit Notes' : '+ Add Notes'}</span>
+                      <span>{app.notes ? "Edit Notes" : "+ Add Notes"}</span>
                     </button>
                   </div>
                 </div>
@@ -313,14 +417,15 @@ export default function ApplicationsPage({ currentUser }) {
                         disabled={savingNotes}
                         className="btn-primary text-xs py-1 px-3"
                       >
-                        {savingNotes ? 'Saving...' : 'Save Notes'}
+                        {savingNotes ? "Saving..." : "Save Notes"}
                       </button>
                     </div>
                   </div>
                 ) : (
                   app.notes && (
                     <div className="p-2.5 bg-cream-bg/30 border border-cream-border text-[11px] text-charcoal leading-relaxed">
-                      <strong className="text-charcoal-muted">Notes:</strong> {app.notes}
+                      <strong className="text-charcoal-muted">Notes:</strong>{" "}
+                      {app.notes}
                     </div>
                   )
                 )}

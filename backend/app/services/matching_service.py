@@ -1,4 +1,6 @@
-from typing import Dict, List, Optional, Set, Tuple
+from datetime import datetime
+import re
+from typing import Dict, List, Optional, Set, Tuple, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.job import Job
@@ -12,6 +14,77 @@ class MatchingService:
     @staticmethod
     def _normalize(name: str) -> str:
         return name.strip().lower()
+
+    @staticmethod
+    def _parse_month_year(date_str: Optional[str]) -> Tuple[Optional[int], int]:
+        if not date_str:
+            return None, 1
+        date_str = date_str.strip()
+        y_match = re.search(r"\b(19\d\d|20\d\d)\b", date_str)
+        if not y_match:
+            return None, 1
+        year = int(y_match.group(1))
+
+        m_map = {
+            "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+            "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12
+        }
+        month = 1
+        for m_name, m_num in m_map.items():
+            if m_name in date_str.lower():
+                month = m_num
+                break
+        return year, month
+
+    @classmethod
+    def calculate_candidate_experience_years(cls, profile) -> float:
+        """Estimates candidate total years of experience from profile experiences."""
+        if not profile or not getattr(profile, "experiences", None):
+            return 0.0
+
+        total_months = 0
+        now = datetime.now()
+        for exp in profile.experiences:
+            s_year, s_month = cls._parse_month_year(exp.start_date)
+            if not s_year:
+                continue
+            if exp.is_current or not exp.end_date or "present" in (exp.end_date or "").lower():
+                e_year, e_month = now.year, now.month
+            else:
+                e_year, e_month = cls._parse_month_year(exp.end_date)
+                if not e_year:
+                    e_year, e_month = s_year, s_month + 12
+
+            months = (e_year - s_year) * 12 + (e_month - s_month)
+            if months > 0:
+                total_months += months
+
+        return round(total_months / 12.0, 1)
+
+    @classmethod
+    def check_experience_qualification(cls, profile, job_req: JobRequirement) -> Dict[str, Any]:
+        """Compares candidate total experience against required min_years.
+        Treats min_years as the requirement (0 years matches '0 to 2 years' job).
+        """
+        min_years = None
+        if job_req.raw_analysis and isinstance(job_req.raw_analysis, dict):
+            min_years = job_req.raw_analysis.get("min_years")
+        if min_years is None and job_req.experience_years:
+            try:
+                min_years = int(re.search(r"\d+", job_req.experience_years).group(0))
+            except Exception:
+                min_years = None
+
+        candidate_years = cls.calculate_candidate_experience_years(profile)
+        is_qualified = True
+        if min_years is not None:
+            is_qualified = (candidate_years >= min_years)
+
+        return {
+            "required_min_years": min_years,
+            "candidate_years": candidate_years,
+            "is_qualified": is_qualified,
+        }
 
     @classmethod
     def calculate_match(
@@ -111,6 +184,13 @@ class MatchingService:
             s_norm = cls._normalize(s.name)
             if s.proficiency == "Expert" and s_norm not in project_evidence and s_norm not in exp_evidence:
                 unsupported_claims.append(f"{s.name} (Claimed as Expert but has no linked projects or work evidence)")
+
+        # Verify experience requirement qualification (min_years treated as requirement)
+        exp_qualification = cls.check_experience_qualification(profile, job_req)
+        if exp_qualification["required_min_years"] is not None and not exp_qualification["is_qualified"]:
+            unsupported_claims.append(
+                f"Experience: Role requires minimum {exp_qualification['required_min_years']} years (profile has {exp_qualification['candidate_years']:.1f} years)"
+            )
 
         # 4. Compute Estimated Job Match Score
         # 70% weight on required skills, 30% on preferred skills

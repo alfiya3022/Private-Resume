@@ -33,7 +33,7 @@
     │   │   │                                              ┌───────┴───────┐
     │   │   │                                              │certifications │
     │   │   │                                              └───────────────┘
-    │   │   │ 1:N
+    │   │   │ 1:1
     │   │   └──────────────────────► ┌───────────────────┐
     │   │                            │   master_resumes  │
     │   │                            └───────────────────┘
@@ -217,6 +217,26 @@ CREATE TABLE applications (
 );
 CREATE INDEX ix_applications_user_id ON applications(user_id);
 CREATE INDEX ix_applications_status ON applications(status);
+```
+
+### 3.10 `master_resumes`
+Ingested candidate master resume PDF records, raw text, and structured extraction data. A strict 1:1 relationship per user is enforced via Alembic migration `011_enforce_single_master_resume_per_user`.
+```sql
+CREATE TABLE master_resumes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size INTEGER NOT NULL,
+    file_hash VARCHAR(64),
+    raw_text TEXT NOT NULL,
+    extracted_data JSONB,  -- structured profile entities (migration 010)
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT uq_master_resumes_user_id UNIQUE (user_id)
+);
+CREATE INDEX ix_master_resumes_id ON master_resumes(id);
+CREATE UNIQUE INDEX ix_master_resumes_user_id ON master_resumes(user_id);
 ```
 
 ---

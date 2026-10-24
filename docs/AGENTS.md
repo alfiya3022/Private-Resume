@@ -37,6 +37,9 @@ Redis, Celery, Kafka, Kubernetes, Terraform, MongoDB, GraphQL, Elasticsearch, ve
 ## Documentation behavior
 After a meaningful milestone, update `PROJECT_STATE.md` with verified work only. Update decision documents only when a decision is intentionally changed. Do not invent project history.
 
+## Continuous Documentation Subagent
+The `docs-updater` subagent is strictly prompt-driven: it is automatically invoked after every user prompt, code change, and verified result to inspect changes and ensure `docs/`, `PROJECT_STATE.md`, `CHANGELOG.md`, `README.md`, and test-case workbooks remain continuously synchronized with verified work. It operates under a strict documentation-only scope and does not modify application source code.
+
 ## Completion standard
 A task is not complete when code merely exists. It is complete when the requirement is satisfied, relevant tests pass, edge/error handling is addressed, and the implementation is consistent with the project documents.
 

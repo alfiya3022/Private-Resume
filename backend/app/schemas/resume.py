@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, ConfigDict
 
 
@@ -27,4 +27,19 @@ class ParsedResumeResponse(BaseModel):
     raw_text: str
     sections: Dict[str, str] = {}
     extracted_skills: List[str] = []
+    extracted_data: Optional[Dict[str, Any]] = None
+    comparison: Optional[Dict[str, Any]] = None
     message: str = "Master resume parsed successfully"
+
+
+class ApplyExtractedDataRequest(BaseModel):
+    sections: Optional[List[str]] = None
+    overwrite_existing: bool = False
+
+
+class ExtractedDataComparisonResponse(BaseModel):
+    resume_id: int
+    filename: str
+    extracted_data: Dict[str, Any] = {}
+    comparison: Dict[str, Any] = {}
+    is_active: bool = True
