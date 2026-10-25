@@ -1,0 +1,110 @@
+{
+  "personal_info": {
+    "name": "Shakra Shamim",
+    "headline": "Data Analyst",
+    "email": "shakrashamim09@gmail.com",
+    "phone": "+91-9919XXXXXX",
+    "linkedin_url": "linkedin.com/in/shakrashamim"
+  },
+  "summary": "Data Analyst with a strong foundation in SQL, Python, Excel, and Power BI. Skilled in cleaning, analyzing, and visualizing data to generate insights and support data-driven decision-making. Interested in collaborating on meaningful analytical work in fast-paced environments.",
+  "skills": [
+    {
+      "name": "SQL",
+      "category": "Programming & Querying"
+    },
+    {
+      "name": "Python",
+      "category": "Programming & Querying"
+    },
+    {
+      "name": "Advanced MS Excel",
+      "category": "Data Visualization Tools"
+    },
+    {
+      "name": "Power BI",
+      "category": "Data Visualization Tools"
+    },
+    {
+      "name": "Tableau",
+      "category": "Data Visualization Tools"
+    },
+    {
+      "name": "Data Cleaning",
+      "category": "Analytical Abilities"
+    },
+    {
+      "name": "Exploratory Data Analysis (EDA)",
+      "category": "Analytical Abilities"
+    },
+    {
+      "name": "Insight Generation",
+      "category": "Analytical Abilities"
+    },
+    {
+      "name": "Descriptive Statistics",
+      "category": "Analytical Abilities"
+    }
+  ],
+  "experience": [
+    {
+      "title": "Data Analyst Intern",
+      "company": "Dataview Analytics",
+      "location": "Remote",
+      "start_date": "April 2025",
+      "end_date": "June 2025",
+      "technologies": [
+        "Excel",
+        "SQL",
+        "Power BI"
+      ],
+      "bullet_count": 4
+    }
+  ],
+  "projects": [
+    {
+      "title": "Customer Churn Analysis",
+      "start_date": "March 2025",
+      "end_date": "April 2025",
+      "technologies": [
+        "Python"
+      ],
+      "bullet_count": 4
+    },
+    {
+      "title": "Sales Dashboard for Regional Performance",
+      "start_date": "February 2025",
+      "end_date": "March 2025",
+      "technologies": [
+        "SQL",
+        "Power BI"
+      ],
+      "bullet_count": 4
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Google Data Analytics Certificate",
+      "issuer": "Coursera",
+      "item_type": "certification"
+    },
+    {
+      "name": "Top 5% in SQL Hackerrank Challenge",
+      "issuer": "Hackerrank",
+      "item_type": "achievement"
+    },
+    {
+      "name": "Best Final Year Project",
+      "issuer": "Marwari College",
+      "item_type": "achievement"
+    }
+  ],
+  "education": [
+    {
+      "degree": "B.Sc. Information Technology",
+      "institution": "Marwari College, Ranchi",
+      "grade": "8.2 / 10",
+      "end_date": "2025"
+    }
+  ],
+  "preserved_sections": []
+}

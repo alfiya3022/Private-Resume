@@ -1,0 +1,218 @@
+{
+  "personal_info": {
+    "name": "ALFIYA SHAIKH",
+    "email": "alfiya43shaikh@gmail.com",
+    "phone": "+91-8080713022",
+    "location": "Mumbai, Maharashtra",
+    "linkedin_url": "linkedin.com",
+    "github_url": "github.com"
+  },
+  "summary": "Data Analyst skilled in Python, SQL, and Power BI, specializing in data visualization, dashboard development, and reporting automation. Improved efficiency and data accuracy by 30%+.",
+  "skills": [
+    {
+      "name": "Python",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Pandas",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "NumPy",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "SQL",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Joins",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Window Functions",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "MS SQL Server",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Power BI",
+      "category": "Visualization"
+    },
+    {
+      "name": "DAX",
+      "category": "Visualization"
+    },
+    {
+      "name": "KPI Dashboards",
+      "category": "Visualization"
+    },
+    {
+      "name": "Excel",
+      "category": "Visualization"
+    },
+    {
+      "name": "Pivot",
+      "category": "Visualization"
+    },
+    {
+      "name": "XLOOKUP",
+      "category": "Visualization"
+    },
+    {
+      "name": "Matplotlib",
+      "category": "Visualization"
+    },
+    {
+      "name": "Seaborn",
+      "category": "Visualization"
+    },
+    {
+      "name": "Data Cleaning",
+      "category": "Concepts"
+    },
+    {
+      "name": "EDA",
+      "category": "Concepts"
+    },
+    {
+      "name": "Data Modeling",
+      "category": "Concepts"
+    },
+    {
+      "name": "ETL",
+      "category": "Concepts"
+    },
+    {
+      "name": "REST APIs",
+      "category": "Concepts"
+    },
+    {
+      "name": "JSON",
+      "category": "Concepts"
+    },
+    {
+      "name": "Statistical Analysis",
+      "category": "Concepts"
+    },
+    {
+      "name": "Git",
+      "category": "Tools"
+    },
+    {
+      "name": "GitHub",
+      "category": "Tools"
+    },
+    {
+      "name": "Postman",
+      "category": "Tools"
+    },
+    {
+      "name": "Jupyter",
+      "category": "Tools"
+    },
+    {
+      "name": "VS Code",
+      "category": "Tools"
+    },
+    {
+      "name": "Deep Learning",
+      "category": "Additional"
+    },
+    {
+      "name": "CNN",
+      "category": "Additional"
+    },
+    {
+      "name": "ConvLSTM",
+      "category": "Additional"
+    },
+    {
+      "name": "Agile",
+      "category": "Additional"
+    },
+    {
+      "name": "Analytical Thinking",
+      "category": "Soft Skills"
+    },
+    {
+      "name": "Problem Solving",
+      "category": "Soft Skills"
+    },
+    {
+      "name": "Communication",
+      "category": "Soft Skills"
+    },
+    {
+      "name": "Team Collaboration",
+      "category": "Soft Skills"
+    }
+  ],
+  "education": [
+    {
+      "degree": "B.E. Electronics & Telecommunication Engineering",
+      "institution": "Vidyavardhini\u2019s College of Engineering",
+      "grade": "8.0",
+      "start_date": "2022",
+      "end_date": "2026"
+    }
+  ],
+  "experience": [
+    {
+      "title": "Design & Development Intern",
+      "company": "First Home Fintech Solutions",
+      "location": "Remote",
+      "start_date": "Jan 2026",
+      "end_date": "Mar 2026",
+      "bullet_count": 3
+    }
+  ],
+  "projects": [
+    {
+      "title": "Multi-Exposure Image Fusion Model",
+      "technologies": [
+        "CNN",
+        "VGG16",
+        "ConvLSTM"
+      ],
+      "bullet_count": 1
+    },
+    {
+      "title": "End-to-End Data Analytics Dashboard",
+      "technologies": [
+        "SQL",
+        "Power BI"
+      ],
+      "bullet_count": 1
+    },
+    {
+      "title": "UPI Transactions Analysis Dashboard",
+      "technologies": [
+        "Power BI"
+      ],
+      "bullet_count": 1
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Semi-Finalist \u2014 VCET Face-off 2023",
+      "issuer": "VCET Face-off",
+      "item_type": "achievement"
+    },
+    {
+      "name": "Runner-Up \u2014 Oscillations Paper Presentation",
+      "issuer": "Oscillations",
+      "item_type": "achievement"
+    },
+    {
+      "name": "Data Analyst Bootcamp",
+      "issuer": "Udemy",
+      "item_type": "certification"
+    }
+  ],
+  "preserved_sections": [
+    "LEADERSHIP"
+  ]
+}

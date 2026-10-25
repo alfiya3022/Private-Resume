@@ -1,0 +1,162 @@
+{
+  "personal_info": {
+    "name": "ALFIYA SHAIKH",
+    "email": "alfiya43shaikh@gmail.com",
+    "phone": "+91 8080713022",
+    "location": "Mumbai, Maharashtra",
+    "headline": "Entry-Level Product Engineer | After-Sales Service & Customer Success",
+    "linkedin_url": "linkedin.com",
+    "github_url": "github.com"
+  },
+  "summary": "Entry-level Product Engineer with hands-on experience in after-sales service analytics, customer query resolution, and troubleshooting IoT-based consumer electronics. Strong foundation in basic electronics, diagnostics, and technical problem-solving for AI-enabled devices. Experience building service dashboards using Power BI and SQL to improve service workflows and customer satisfaction.",
+  "skills": [
+    {
+      "name": "Troubleshooting",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Technical Diagnostics",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Basic Electronics & Embedded Systems",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "IoT Fundamentals",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "AI-enabled Devices",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Consumer Electronics",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Service Request Management",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Customer Query Resolution",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Product Knowledge",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Power BI",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "SQL",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Excel",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Arduino",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Sensors",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Raspberry Pi Pico",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Git & GitHub",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "MS Office",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Jupyter Notebook",
+      "category": "Technical Skills (Hard Skills)"
+    },
+    {
+      "name": "Google Colab",
+      "category": "Technical Skills (Hard Skills)"
+    }
+  ],
+  "experience": [
+    {
+      "title": "Design & Development Intern",
+      "company": "First Home Fintech Solutions",
+      "location": "Remote",
+      "start_date": "Jan 2026",
+      "end_date": "Present",
+      "bullet_count": 4
+    }
+  ],
+  "projects": [
+    {
+      "title": "Customer Complaint & Service Operations Dashboard",
+      "technologies": [
+        "Power BI",
+        "SQL"
+      ],
+      "bullet_count": 3
+    },
+    {
+      "title": "Smart Home Automation System",
+      "technologies": [
+        "Arduino",
+        "Bluetooth",
+        "Relays"
+      ],
+      "bullet_count": 3
+    },
+    {
+      "title": "AI-Based Multi-Exposure Image Fusion",
+      "technologies": [
+        "CNN",
+        "ConvLSTM"
+      ],
+      "bullet_count": 3
+    }
+  ],
+  "education": [
+    {
+      "degree": "Bachelor of Engineering in Electronics & Telecommunication Engineering",
+      "institution": "Vidyavardhini\u2019s College of Engineering and Technology, Mumbai",
+      "start_date": "2022",
+      "end_date": "2026"
+    },
+    {
+      "degree": "Higher Secondary Education (HSC)",
+      "institution": "Mount Carmel Junior College, Mumbai",
+      "start_date": "2020",
+      "end_date": "2022"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Complete Data Analyst Bootcamp",
+      "issuer": "Udemy",
+      "item_type": "certification"
+    },
+    {
+      "name": "Semi-Finalist \u2013 VCET FaceOff 2023",
+      "issuer": "VCET FaceOff",
+      "item_type": "achievement"
+    },
+    {
+      "name": "Runner-Up \u2013 Oscillations Paper Presentation",
+      "issuer": "Oscillations",
+      "item_type": "achievement"
+    }
+  ],
+  "preserved_sections": [
+    "Soft Skills",
+    "Languages"
+  ]
+}

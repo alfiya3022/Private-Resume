@@ -1,0 +1,239 @@
+{
+  "personal_info": {
+    "name": "Alfiya Shaikh",
+    "email": "alfiya43shaikh@gmail.com",
+    "phone": "+91-8080713022",
+    "location": "Mumbai, Maharashtra",
+    "linkedin_url": "linkedin.com",
+    "github_url": "github.com"
+  },
+  "summary": "Recent Engineering graduate with hands-on experience in SQL, Python, MS SQL Server, Power BI, ETL, data modeling, and data warehousing. Built end-to-end analytics solutions and interactive dashboards to deliver actionable business insights.",
+  "skills": [
+    {
+      "name": "SQL",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "MS SQL Server",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "T-SQL",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Joins",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "CTEs",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "WindowFunctions",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Advanced SQL",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Python",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Pandas",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "NumPy",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Power BI",
+      "category": "Business Intelligence"
+    },
+    {
+      "name": "DAX",
+      "category": "Business Intelligence"
+    },
+    {
+      "name": "Power Query",
+      "category": "Business Intelligence"
+    },
+    {
+      "name": "Data Modeling",
+      "category": "Business Intelligence"
+    },
+    {
+      "name": "ETL",
+      "category": "Business Intelligence"
+    },
+    {
+      "name": "Data Cleaning",
+      "category": "Data Analytics"
+    },
+    {
+      "name": "Exploratory Data Analysis (EDA)",
+      "category": "Data Analytics"
+    },
+    {
+      "name": "Statistical Analysis",
+      "category": "Data Analytics"
+    },
+    {
+      "name": "KPI Reporting",
+      "category": "Data Analytics"
+    },
+    {
+      "name": "Excel",
+      "category": "Data Analytics"
+    },
+    {
+      "name": "Pivot Tables",
+      "category": "Data Analytics"
+    },
+    {
+      "name": "XLOOKUP",
+      "category": "Data Analytics"
+    },
+    {
+      "name": "Git",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "GitHub",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "Jupyter Notebook",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "VS Code",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "Agile Methodologies",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "SDLC",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "AI/Machine Learning",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "ConvLSTM",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "CNN",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "REST APIs",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "JSON",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "Postman",
+      "category": "Tools & Concepts"
+    },
+    {
+      "name": "Linux",
+      "category": "Tools & Concepts"
+    }
+  ],
+  "education": [
+    {
+      "degree": "B.E. Electronics & Telecommunication Engineering",
+      "institution": "Vidyavardhini\u2019s College of Engineering",
+      "grade": "8.02",
+      "start_date": "2022",
+      "end_date": "2026"
+    }
+  ],
+  "experience": [
+    {
+      "title": "Design & Development Intern",
+      "company": "First Home Fintech Solutions",
+      "location": "Remote",
+      "start_date": "Jan 2026",
+      "end_date": "Mar 2026",
+      "bullet_count": 2
+    }
+  ],
+  "projects": [
+    {
+      "title": "Human Perception-Based Multi-Exposure Image Fusion Model Using Deep Learning/AI",
+      "start_date": "2025",
+      "end_date": "Present",
+      "technologies": [
+        "Python",
+        "MATLAB",
+        "CNN",
+        "ConvLSTM"
+      ],
+      "bullet_count": 2
+    },
+    {
+      "title": "Investment Portfolio Analytics & Trade Data Warehouse",
+      "start_date": "2026",
+      "end_date": "2026",
+      "technologies": [
+        "MS SQL Server",
+        "SQL",
+        "Power BI",
+        "DAX",
+        "Excel"
+      ],
+      "bullet_count": 2
+    },
+    {
+      "title": "Telecom Customer & Revenue Analytics Platform",
+      "start_date": "2026",
+      "end_date": "2026",
+      "technologies": [
+        "MS SQL Server",
+        "SQL",
+        "Power BI",
+        "DAX"
+      ],
+      "bullet_count": 2
+    }
+  ],
+  "certifications": [
+    {
+      "name": "The Complete SQL Bootcamp",
+      "issuer": "Udemy",
+      "item_type": "certification"
+    },
+    {
+      "name": "Complete Data Analyst Bootcamp from Basic to Advanced",
+      "issuer": "Udemy",
+      "item_type": "certification"
+    },
+    {
+      "name": "Google Data Analytics Professional Certificate",
+      "issuer": "Google",
+      "item_type": "certification"
+    },
+    {
+      "name": "Research Paper Author and Patent Contributor",
+      "issuer": "Information Fusion",
+      "item_type": "achievement"
+    },
+    {
+      "name": "Semi-Finalist \u2013 VCET Face-Off 2023 and Runner-Up \u2013 Oscillations Technical Paper Presentation",
+      "issuer": "VCET",
+      "item_type": "achievement"
+    }
+  ],
+  "preserved_sections": []
+}

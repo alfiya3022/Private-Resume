@@ -1,0 +1,234 @@
+{
+  "personal_info": {
+    "name": "ALFIYA SHAIKH",
+    "email": "alfiya43shaikh@gmail.com",
+    "phone": "+91-8080713022",
+    "linkedin_url": "linkedin.com/in/alfiya-shaikh",
+    "github_url": "github.com/alfiya3022"
+  },
+  "summary": "Detail-oriented Data Analyst with hands-on experience in Python, SQL, Excel, and Power BI, building end-to-end data pipelines and interactive dashboards. Strong foundation in data cleaning, exploratory analysis, and transforming raw datasets into actionable business insights.",
+  "education": [
+    {
+      "degree": "BE. Electronics & Telecommunication Engineering",
+      "institution": "Vidyavardhini\u2019s College of Engineering",
+      "grade": "8 CGPA",
+      "start_date": "2022",
+      "end_date": "2026"
+    }
+  ],
+  "skills": [
+    {
+      "name": "Python",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Pandas",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "NumPy",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "SQL",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Joins",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Subqueries",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Window Functions",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "MS SQL Server",
+      "category": "Programming & Databases"
+    },
+    {
+      "name": "Power BI",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "DAX basics",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "KPI dashboards",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "Drill-through",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "Excel",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "Pivot Tables",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "XLOOKUP",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "Matplotlib",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "Seaborn",
+      "category": "Data Visualization & BI"
+    },
+    {
+      "name": "Data Cleaning",
+      "category": "Data Concepts"
+    },
+    {
+      "name": "Data Profiling",
+      "category": "Data Concepts"
+    },
+    {
+      "name": "EDA",
+      "category": "Data Concepts"
+    },
+    {
+      "name": "REST APIs",
+      "category": "Data Concepts"
+    },
+    {
+      "name": "JSON",
+      "category": "Data Concepts"
+    },
+    {
+      "name": "Basic Statistical Analysis",
+      "category": "Data Concepts"
+    },
+    {
+      "name": "Git",
+      "category": "Tools"
+    },
+    {
+      "name": "GitHub",
+      "category": "Tools"
+    },
+    {
+      "name": "Postman",
+      "category": "Tools"
+    },
+    {
+      "name": "VS Code",
+      "category": "Tools"
+    },
+    {
+      "name": "Google Colab",
+      "category": "Tools"
+    },
+    {
+      "name": "Jupyter Notebook",
+      "category": "Tools"
+    },
+    {
+      "name": "Linux",
+      "category": "Tools and Concepts"
+    },
+    {
+      "name": "SDLC",
+      "category": "Tools and Concepts"
+    },
+    {
+      "name": "Debugging",
+      "category": "Tools and Concepts"
+    },
+    {
+      "name": "Documentation",
+      "category": "Tools and Concepts"
+    },
+    {
+      "name": "Agile",
+      "category": "Tools and Concepts"
+    },
+    {
+      "name": "Deep Learning",
+      "category": "Additional Exposure"
+    },
+    {
+      "name": "CNN",
+      "category": "Additional Exposure"
+    },
+    {
+      "name": "ConvLSTM",
+      "category": "Additional Exposure"
+    },
+    {
+      "name": "Image Processing",
+      "category": "Additional Exposure"
+    }
+  ],
+  "projects": [
+    {
+      "title": "Human Perception-Based Deep Learning Model for Multi-Exposure Image Fusion",
+      "technologies": [
+        "Python",
+        "CNN",
+        "VGG16",
+        "ConvLSTM",
+        "Deep Learning"
+      ],
+      "bullet_count": 3
+    },
+    {
+      "title": "End-to-End Data Analytics Dashboard",
+      "technologies": [
+        "Postman",
+        "REST APIs",
+        "JSON",
+        "Git",
+        "Power BI"
+      ],
+      "bullet_count": 2
+    },
+    {
+      "title": "UPI Transactions Analysis Dashboard",
+      "technologies": [
+        "Power BI",
+        "Excel",
+        "Data Cleaning"
+      ],
+      "bullet_count": 3
+    }
+  ],
+  "experience": [
+    {
+      "title": "Design & Development Intern",
+      "company": "First Home Fintech Solutions",
+      "location": "Remote (UAE)",
+      "start_date": "Jan 2026",
+      "end_date": "Present",
+      "bullet_count": 3
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Complete Data Analyst Bootcamp",
+      "issuer": "Udemy",
+      "item_type": "certification"
+    },
+    {
+      "name": "Semi-Finalist \u2014 VCET Face-off 2023",
+      "issuer": "VCET Face-off",
+      "item_type": "achievement"
+    },
+    {
+      "name": "Runner-Up \u2014 Oscillations Paper Presentation",
+      "issuer": "Oscillations Paper Presentation",
+      "item_type": "achievement"
+    }
+  ],
+  "preserved_sections": []
+}
