@@ -79,3 +79,5 @@ test_*.pdf
 test_*.log
 test_*.aux
 \$testDir/
+
+backend/tests/fixtures/heldout/real/
