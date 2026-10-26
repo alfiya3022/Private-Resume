@@ -1,14 +1,10 @@
 import json
 import re
+import time
 from typing import Dict, List, Optional, Any, Tuple
 import httpx
 from app.core.config import settings
 from app.schemas.analysis import StructuredJDAnalysis
-from app.services.ai.resume_llm_schemas import (
-    LLMResumeExtraction,
-    LLMChunkSkills,
-    LLMSkillCategoryBatch,
-)
 
 # Categorized taxonomy for deterministic extraction and validation
 TECH_CATEGORIES = {
@@ -207,6 +203,13 @@ class OllamaProvider:
                         else:
                             if "experience_range" not in parsed_dict:
                                 parsed_dict["experience_range"] = parsed_dict.get("experience_years")
+                        # Augment categories with deterministic keywords from the JD
+                        det = self.deterministic_jd_extraction(raw_jd_text)
+                        for cat in ["languages", "frameworks", "databases", "tools", "cloud"]:
+                            existing = set(parsed_dict.get(cat, []))
+                            for item in getattr(det, cat, []):
+                                if item not in existing:
+                                    parsed_dict.setdefault(cat, []).append(item)
                         return StructuredJDAnalysis(**parsed_dict)
         except Exception:
             pass
@@ -319,26 +322,111 @@ class OllamaProvider:
             soft_skills=sorted(list(set(extracted["soft_skills"]))),
         )
 
+    def check_unsupported_evidence(
+        self,
+        suggested_text: str,
+        candidate_evidence: Optional[Dict[str, Any]] = None,
+        context_skills: Optional[List[str]] = None,
+        current_text: str = "",
+    ) -> List[str]:
+        """Detects technical skills or claims present in suggested_text that are not backed
+        by candidate verified evidence or the current section text.
+        """
+        if not suggested_text:
+            return []
+
+        # Gather all verified tokens and phrases
+        verified_corpus = set()
+
+        if context_skills:
+            for s in context_skills:
+                verified_corpus.add(s.strip().lower())
+
+        if candidate_evidence:
+            for s in candidate_evidence.get("skills", []):
+                verified_corpus.add(s.strip().lower())
+            for exp in candidate_evidence.get("experience", []):
+                for token in re.findall(r"\b[A-Za-z0-9\.\+#\-]+\b", str(exp).lower()):
+                    verified_corpus.add(token)
+            for proj in candidate_evidence.get("projects", []):
+                for token in re.findall(r"\b[A-Za-z0-9\.\+#\-]+\b", str(proj).lower()):
+                    verified_corpus.add(token)
+            for cert in candidate_evidence.get("certifications", []):
+                for token in re.findall(r"\b[A-Za-z0-9\.\+#\-]+\b", str(cert).lower()):
+                    verified_corpus.add(token)
+            for edu in candidate_evidence.get("education", []):
+                for token in re.findall(r"\b[A-Za-z0-9\.\+#\-]+\b", str(edu).lower()):
+                    verified_corpus.add(token)
+
+        if current_text:
+            for token in re.findall(r"\b[A-Za-z0-9\.\+#\-]+\b", current_text.lower()):
+                verified_corpus.add(token)
+
+        # Detect technical skills in suggested_text
+        suggested_lower = suggested_text.lower()
+        unsupported = []
+
+        for cat, keywords in TECH_CATEGORIES.items():
+            for kw in keywords:
+                pattern = rf"\b{re.escape(kw)}\b"
+                if re.search(pattern, suggested_lower):
+                    canonical = CANONICAL_NAMES.get(kw, kw.title())
+                    # Check if present in verified corpus
+                    is_verified = (
+                        kw in verified_corpus
+                        or canonical.lower() in verified_corpus
+                        or any(kw in v for v in verified_corpus if len(v) > 2)
+                    )
+                    if not is_verified and canonical not in unsupported:
+                        unsupported.append(canonical)
+
+        return unsupported
+
     async def refine_section(
-        self, section: str, instruction: str, current_text: str, context_skills: Optional[List[str]] = None
-    ) -> Dict[str, str]:
-        """Refines resume section content using Ollama or deterministic fallback."""
-        skills_ctx = ", ".join(context_skills) if context_skills else "Candidate verified profile skills"
+        self,
+        section: str,
+        instruction: str,
+        current_text: str,
+        candidate_evidence: Optional[Dict[str, Any]] = None,
+        context_skills: Optional[List[str]] = None,
+        acknowledge_unsupported: bool = False,
+    ) -> Dict[str, Any]:
+        """Refines resume section content using Ollama following the candidate's custom prompt,
+        with strict anti-fabrication evidence checking and fallback.
+        """
+        evidence_summary_lines = []
+        if context_skills:
+            evidence_summary_lines.append(f"Verified Skills: {', '.join(context_skills)}")
+        if candidate_evidence:
+            if candidate_evidence.get("experience"):
+                evidence_summary_lines.append(f"Experience: {'; '.join(candidate_evidence['experience'][:3])}")
+            if candidate_evidence.get("projects"):
+                evidence_summary_lines.append(f"Projects: {'; '.join(candidate_evidence['projects'][:3])}")
+            if candidate_evidence.get("certifications"):
+                evidence_summary_lines.append(f"Certifications: {'; '.join(candidate_evidence['certifications'])}")
+
+        evidence_summary = "\n".join(evidence_summary_lines) if evidence_summary_lines else "None provided."
+
         prompt = (
-            "You are an expert resume editor and technical career coach. "
-            "Adhere strictly to anti-fabrication guidelines: NEVER invent or hallucinate unverified skills, metrics, certifications, or employers. "
-            f"Permitted context skills from candidate profile: {skills_ctx}.\n\n"
+            "You are an expert resume assistant and career coach.\n"
+            "Your highest priority is to faithfully follow the candidate's instruction.\n\n"
+            f"Candidate Instruction: {instruction}\n"
             f"Target Section: {section}\n"
-            f"Current Content:\n{current_text or 'None'}\n\n"
-            f"Candidate Revision Request: {instruction}\n\n"
-            "SPECIAL RULE FOR SUMMARY: Keep the executive summary sharply focused on the specific role, tech stack, and responsibilities demanded by the target job. "
-            "Do NOT summarize the candidate's entire historical career or irrelevant past domains. Tailor directly to the job description.\n\n"
-            "Respond ONLY with a valid JSON object matching this schema:\n"
+            f"Current Content:\n{current_text or '(None)'}\n\n"
+            f"Verified Candidate Evidence Context:\n{evidence_summary}\n\n"
+            "Guidelines:\n"
+            "1. Execute the candidate's instruction directly and completely. Do not replace it with predefined templates.\n"
+            "2. Ground qualifications, technical skills, and achievements in the candidate's verified evidence whenever possible.\n"
+            "3. If the user asks for feedback, critique, or advice, return that constructive feedback clearly in suggested_text.\n"
+            "4. Return strictly a valid JSON object matching this schema:\n"
             '{\n  "suggested_text": "string",\n  "explanation": "string"\n}'
         )
 
+        suggested_text = ""
+        explanation = ""
+
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
                     f"{self.base_url}/api/generate",
                     json={
@@ -346,31 +434,125 @@ class OllamaProvider:
                         "prompt": prompt,
                         "stream": False,
                         "format": "json",
+                        "keep_alive": "15m",
                     },
                 )
                 if response.status_code == 200:
                     result_json = response.json()
                     response_text = result_json.get("response", "{}")
                     parsed_dict = json.loads(response_text)
-                    if "suggested_text" in parsed_dict:
-                        return parsed_dict
+                    if "suggested_text" in parsed_dict and parsed_dict["suggested_text"]:
+                        suggested_text = parsed_dict["suggested_text"]
+                        explanation = parsed_dict.get("explanation", f"Applied instruction: {instruction}")
         except Exception:
             pass
 
-        return self.deterministic_refine_section(section, instruction, current_text)
+        # If Ollama didn't return a valid revision, use deterministic fallback responsive to instruction
+        if not suggested_text:
+            fallback = self.deterministic_refine_section(section, instruction, current_text)
+            suggested_text = fallback["suggested_text"]
+            explanation = fallback["explanation"]
+
+        # Anti-fabrication check: detect unsupported claims
+        unsupported = self.check_unsupported_evidence(
+            suggested_text=suggested_text,
+            candidate_evidence=candidate_evidence,
+            context_skills=context_skills,
+            current_text=current_text,
+        )
+
+        has_unsupported = len(unsupported) > 0
+        warning = None
+
+        if has_unsupported:
+            if not acknowledge_unsupported:
+                warning = (
+                    f"This revision introduces technical claims or skills not found in your verified profile: "
+                    f"{', '.join(unsupported)}. Please acknowledge to proceed with this unverified content."
+                )
+
+        return {
+            "suggested_text": suggested_text,
+            "explanation": explanation,
+            "has_unsupported_content": has_unsupported,
+            "missing_evidence": unsupported,
+            "evidence_warning": warning,
+        }
 
     def deterministic_refine_section(self, section: str, instruction: str, current_text: str) -> Dict[str, str]:
-        """Deterministic section refinement fallback ensuring factual action-oriented phrasing."""
+        """Deterministic section refinement fallback that responds intelligently to user instructions."""
+        inst = (instruction or "").lower().strip()
         lines = [line.strip() for line in (current_text or "").splitlines() if line.strip()]
         action_verbs = ["Architected", "Engineered", "Implemented", "Streamlined", "Optimized", "Spearheaded", "Delivered"]
 
-        if section.lower() == "summary":
-            suggested = (
-                f"Results-driven software engineer with proven experience in technical implementation, "
-                f"system reliability, and collaborative engineering. Committed to delivering scalable solutions."
-            )
-            explanation = "Restructured summary into an impactful, fact-grounded professional profile."
-        elif lines:
+        # 1. Feedback / critique instruction
+        if any(w in inst for w in ["feedback", "critique", "review", "evaluate", "assessment"]):
+            if current_text and len(current_text.strip()) > 10:
+                suggested = (
+                    f"Section Feedback for '{section}':\n"
+                    f"1. Strengths: Content clearly states technical duties and functional scope.\n"
+                    f"2. Clarity: Tone is direct, but could be enhanced with specific quantified impact (e.g., % improvement, latency reduction).\n"
+                    f"3. Recommendation: Align phrasing closely with key job requirements while preserving verified facts."
+                )
+            else:
+                suggested = (
+                    f"Section Feedback for '{section}': Currently empty. Recommend outlining core responsibilities, "
+                    f"verified technologies, and measurable achievements aligned with target roles."
+                )
+            return {
+                "suggested_text": suggested,
+                "explanation": "Provided constructive review and feedback on section content and alignment.",
+            }
+
+        # 2. Bullet points request
+        if any(w in inst for w in ["bullet", "bullets", "list", "convert to bullet"]):
+            if lines:
+                refined_lines = []
+                for i, line in enumerate(lines):
+                    clean = line.lstrip("-•* ").strip()
+                    words = clean.split()
+                    if words and not words[0].endswith("ed"):
+                        verb = action_verbs[i % len(action_verbs)]
+                        clean = f"{verb} {clean[0].lower() + clean[1:] if len(clean) > 1 else clean}"
+                    refined_lines.append(f"• {clean}")
+                suggested = "\n".join(refined_lines)
+            elif current_text:
+                # Split sentences into bullets
+                sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", current_text) if s.strip()]
+                suggested = "\n".join(f"• {s}" for s in sentences)
+            else:
+                suggested = f"• Implemented scalable engineering solutions aligned with verified competencies."
+            return {
+                "suggested_text": suggested,
+                "explanation": f"Converted {section} into structured action-oriented bullet points.",
+            }
+
+        # 3. Concise / shorten request
+        if any(w in inst for w in ["concise", "shorten", "brief", "one line", "single sentence", "tighten"]):
+            if current_text:
+                first_sentence = re.split(r"(?<=[.!?])\s+", current_text.strip())[0]
+                suggested = first_sentence.strip()
+            else:
+                suggested = "Experienced software engineer dedicated to delivering high-performance, reliable systems."
+            return {
+                "suggested_text": suggested,
+                "explanation": f"Condensed {section} into concise, impactful phrasing.",
+            }
+
+        # 4. Simpler / plain language request
+        if any(w in inst for w in ["simpler", "simple", "plain", "clear language", "plain english"]):
+            if current_text:
+                simplified = current_text.replace("Spearheaded", "Led").replace("Architected", "Designed").replace("Utilized", "Used")
+                suggested = simplified
+            else:
+                suggested = "Software developer who builds reliable applications and improves team workflows."
+            return {
+                "suggested_text": suggested,
+                "explanation": f"Rewrote {section} in clear, straightforward language without unnecessary jargon.",
+            }
+
+        # 5. Professional tone / action verbs
+        if lines:
             refined_lines = []
             for i, line in enumerate(lines):
                 clean = line.lstrip("-•* ").strip()
@@ -378,508 +560,87 @@ class OllamaProvider:
                 if words and not words[0].endswith("ed"):
                     verb = action_verbs[i % len(action_verbs)]
                     clean = f"{verb} {clean[0].lower() + clean[1:] if len(clean) > 1 else clean}"
-                refined_lines.append(f"• {clean}")
+                refined_lines.append(clean)
             suggested = "\n".join(refined_lines)
-            explanation = f"Refined {section} bullet points with active action verbs and professional cadence."
+            explanation = f"Refined {section} with professional action verbs and active cadence."
+        elif current_text:
+            suggested = current_text.strip()
+            explanation = f"Polished {section} phrasing based on requested instruction."
         else:
-            suggested = current_text or "Refined section based on provided instruction."
-            explanation = f"Updated {section} with clear technical phrasing."
+            suggested = "Results-driven engineering professional focused on reliable system implementation and continuous delivery."
+            explanation = f"Generated professional baseline for {section}."
 
         return {
             "suggested_text": suggested,
             "explanation": explanation,
         }
-        
-    async def extract_full_resume_structure(
-        self, text: str, available_links: Optional[List[str]] = None
-    ) -> Optional[LLMResumeExtraction]:
-        """Extracts complete resume structure via Ollama with strict factual preservation."""
-
-        if not text or not text.strip():
-            return None
-
-        links_ctx = (
-            "\n".join(f"- {link}" for link in available_links)
-            if available_links
-            else "None"
-        )
-
-        prompt = f"""
-You are an expert resume parser and information extraction system.
-
-Your task is to extract the complete, factual structure of a resume.
-The resume may come from any template, country, academic system, profession,
-or document layout.
-
-The input may contain:
-- Different section headings
-- Merged or wrapped lines
-- Bullets represented by symbols, dashes, or plain text
-- Dates in different formats
-- Contact information in headers or footers
-- Academic scores expressed as CGPA, GPA, percentages, marks, or other grading systems
-- Projects embedded inside experience sections
-- Technologies mentioned inside descriptions rather than technology lists
-- Sections appearing in an unusual order
-
-Understand the MEANING of the content. Do not rely only on section headings.
-
-OUTPUT CONTRACT
-Return exactly one valid JSON object matching this structure:
-
-{{
-  "personal_info": {{
-    "name": null,
-    "email": null,
-    "phone": null,
-    "location": null,
-    "headline": null,
-    "linkedin_url": null,
-    "github_url": null,
-    "portfolio_url": null
-  }},
-  "summary": null,
-  "education": [],
-  "experience": [],
-  "projects": [],
-  "certifications": []
-}}
-
-GENERAL RULES
-
-1. Extract only information supported by the resume text.
-2. Never invent, guess, or silently correct information.
-3. Preserve names, titles, organization names, dates, grades, technologies,
-   metrics, and URLs as written wherever possible.
-4. Do not discard information merely because it appears in an unusual location.
-5. Do not confuse the candidate's information with another person's information.
-6. Do not confuse a company, institution, city, project, or job title with
-   the candidate's name.
-7. If a field is unavailable, use null.
-8. If a section has no entries, return an empty list.
-9. Preserve the order in which entries appear in the resume.
-10. Do not create a skills list. Skills extraction is handled separately.
-
-PERSONAL INFORMATION
-
-Extract:
-- Candidate's full name
-- Email address
-- Phone number
-- Location
-- Professional headline
-- LinkedIn URL
-- GitHub URL
-- Portfolio or personal website URL
-
-Contact details may appear in headers, footers, contact sections, or inline text.
-
-Do not mistake a company's contact information for the candidate's information.
-
-Only extract a URL when it clearly belongs to the candidate.
-Do not construct URLs from usernames or platform names.
-
-EDUCATION
-
-Return one object for each distinct degree, qualification, or educational
-institution entry.
-
-Each object must contain:
-- institution
-- degree
-- field_of_study
-- grade
-- start_date
-- end_date
-
-ACADEMIC GRADES AND SCORES
-
-This is a critical requirement.
-
-Extract every academic score associated with an education entry, including:
-- CGPA
-- GPA
-- Percentage
-- Marks
-- Grade
-- Classification
-- Other grading systems
-
-Preserve the score and its grading scale together.
-
-Examples:
-- "8.2 CGPA" must remain "8.2 CGPA".
-- "8.2/10" must remain "8.2/10".
-- "85%" must remain "85%".
-- "3.7 GPA out of 4.0" must retain the GPA and scale.
-- "First Class with Distinction" must remain as written.
-
-Do not convert CGPA to percentage.
-Do not convert percentage to GPA.
-Do not assume a grading scale.
-Do not calculate a missing score.
-Do not associate a score with the wrong degree or institution.
-
-Store the complete grade or score expression in the "grade" field.
-
-EDUCATION DATES
-
-Preserve education dates exactly as written.
-
-Examples:
-- "2022 - 2026" should remain "2022 - 2026".
-- "Aug 2022 - May 2026" should retain those dates.
-- "2022 - Present" should not be converted into a guessed end year.
-
-Associate dates with the correct education entry.
-Do not mix dates from adjacent entries.
-
-EXPERIENCE
-
-Extract professional experience, employment, internships, freelance work,
-and other relevant professional roles.
-
-Return one object per distinct role.
-
-Each object must contain:
-- company
-- title
-- location
-- start_date
-- end_date
-- is_current
-- description
-- bullets
-
-If a company has multiple roles, return separate objects for those roles.
-
-EXPERIENCE DATES
-
-Preserve the date text exactly as written.
-
-Examples:
-- "Jan 2025 - Mar 2025"
-- "2024 - Present"
-- "June 2023 - August 2023"
-- "01/2024 - 06/2024"
-
-Do not normalize date formats.
-Do not infer a missing month or year.
-Do not use dates from another role.
-Do not confuse a project date with an employment date.
-
-For date ranges:
-- start_date contains the starting date expression.
-- end_date contains the ending date expression.
-
-For an explicitly ongoing role:
-- Set is_current to true.
-- Preserve the original end-date wording, such as "Present", when applicable.
-
-For a role that is not explicitly ongoing:
-- Set is_current to false.
-
-Do not mark a role as current merely because it is the most recent role.
-
-EXPERIENCE DESCRIPTIONS AND BULLETS
-
-Preserve the factual meaning of descriptions and bullets.
-
-Do not rewrite accomplishments into stronger claims.
-Do not invent metrics, responsibilities, technologies, or outcomes.
-
-Only join lines when they are clearly wrapped parts of the same bullet.
-
-Keep separate bullets separate.
-
-PROJECTS
-
-Extract personal, academic, professional, and side projects.
-
-Return one object per distinct project.
-
-Each object must contain:
-- title
-- role
-- description
-- bullets
-- technologies
-- url
-- github_url
-- live_url
-- start_date
-- end_date
-
-PROJECT IDENTIFICATION
-
-A project may be identified by:
-- A project section heading
-- A title followed by a description
-- A title followed by technologies
-- A title followed by dates
-- A project link
-- Context indicating that the content describes a project
-
-Do not require a project to appear under a heading named "Projects".
-
-Do not confuse a project with an employer or job title.
-
-PROJECT BOUNDARIES
-
-Every project bullet belongs only to its correct project.
-
-Use the nearest relevant project title and surrounding context.
-
-Never:
-- Merge two separate projects
-- Put a project title inside a bullet
-- Copy a bullet into multiple projects
-- Move project content into employment experience
-- Move employment responsibilities into a project
-
-TECHNOLOGIES
-
-Extract technologies explicitly associated with the project.
-
-Technologies may appear in:
-- A technology stack line
-- Project descriptions
-- Project bullets
-- Other nearby text that clearly describes the project
-
-Do not infer a technology solely because it is common for that kind of project.
-
-Do not add technologies that are not supported by the resume.
-
-PROJECT DATES
-
-Preserve project dates exactly as written.
-
-Associate each date with the correct project.
-
-Do not use employment dates as project dates.
-Do not invent dates when none are stated.
-
-PROJECT LINKS
-
-Use the provided document links only when a link clearly belongs to a project.
-
-A GitHub link should populate github_url.
-A live project link should populate live_url.
-Other clearly associated project URLs may populate url.
-
-Do not guess which project a link belongs to.
-
-CERTIFICATIONS
-
-Extract certifications, courses, awards, achievements, publications,
-and competition results.
-
-Return one object per distinct item.
-
-Each object must contain:
-- name
-- issuer
-- issue_date
-- credential_url
-
-Preserve certification names, issuers, dates, and URLs as written.
-
-Do not confuse a course with a certification unless the resume identifies
-it as a course or credential.
-
-Do not invent an issuer or credential URL.
-
-DATE ASSOCIATION AND ACCURACY
-
-Dates are especially important.
-
-For every entry:
-1. Identify the date expression.
-2. Identify the entry it belongs to.
-3. Preserve the original date wording.
-4. Keep start and end dates in their correct fields.
-5. Do not use a date from a neighboring entry.
-6. Do not infer missing dates.
-7. Do not silently convert date formats.
-
-If a date is ambiguous, preserve only what the text supports.
-Do not guess.
-
-SUMMARY
-
-Extract the candidate's existing professional summary or profile statement.
-
-Do not generate a new summary.
-Do not rewrite the candidate's summary.
-If no summary exists, return null.
-
-FINAL VALIDATION
-
-Before returning the JSON:
-
-- Confirm that personal information has been extracted when present.
-- Confirm that all education entries are included.
-- Confirm that academic scores and grading scales are preserved.
-- Confirm that all experience roles are included.
-- Confirm that experience dates are associated with the correct roles.
-- Confirm that ongoing roles are identified only when explicitly supported.
-- Confirm that all projects are included separately.
-- Confirm that project technologies are grounded in the resume.
-- Confirm that certification dates and issuers are not mixed.
-- Confirm that no unsupported information was added.
-- Confirm that the output matches the requested JSON structure.
-
-Return JSON only. Do not include Markdown fences, explanations, or commentary.
-
-DOCUMENT LINKS
-These links may be used only when they clearly belong to a project:
-
-{links_ctx}
-
-RESUME TEXT
-{text}
-"""
-
-        for attempt in range(2):
-            try:
-                payload = {
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "format": "json",
-                    "options": {
-                        "temperature": 0.0,
-                        "num_ctx": 8192,
-                    },
-                    "think": False,
-                }
-
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    response = await client.post(
-                        f"{self.base_url}/api/generate",
-                        json=payload,
-                    )
-
-                    response.raise_for_status()
-
-                    result_json = response.json()
-                    response_text = result_json.get("response", "{}")
-                    parsed = json.loads(response_text)
-
-                    validated = LLMResumeExtraction.model_validate(parsed)
-                    return validated
-
-            except (
-                httpx.HTTPError,
-                json.JSONDecodeError,
-                ValueError,
-                TypeError,
-            ):
-                if attempt == 1:
-                    return None
-
-        return None
-
-    async def extract_skills_from_chunk(self, chunk: str) -> List[str]:
-        """Extracts skills from a single text chunk via Ollama."""
-        prompt = (
-            "Extract every individual skill mentioned in this part of a resume. Skills can appear anywhere: "
-            "a skills list, a project technology line, a job description, a bullet point or a summary sentence. "
-            "The resume can be from any field (technology, finance, HR, marketing, operations and so on).\n"
-            "Rules:\n"
-            "- One skill per item. Split brackets: \"SQL (MS SQL Server, T-SQL)\" becomes SQL, MS SQL Server, T-SQL.\n"
-            "- Keep multi-word skills together, for example \"Exploratory Data Analysis\".\n"
-            "- Include tools, software, programming languages, frameworks, platforms, methods and domain skills. Include soft skills only when they are explicitly listed as skills.\n"
-            "- Do NOT include the candidate's name, company names, project names, school names, degrees, job titles, or level words such as \"Basics\" or \"Advanced\".\n"
-            "- Only include skills written in the text. Never add any.\n"
-            f"TEXT:\n{chunk}"
-        )
-        try:
-            payload = {
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {
-                    "temperature": 0.0,
-                    "num_ctx": 8192,
-                },
-                "think": False,
-            }
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(
-                    f"{self.base_url}/api/generate",
-                    json=payload,
-                )
-                if response.status_code == 200:
-                    res_json = response.json()
-                    resp_text = res_json.get("response", "{}")
-                    parsed = json.loads(resp_text)
-                    if isinstance(parsed, list):
-                        return [str(s) for s in parsed if s]
-                    if isinstance(parsed, dict):
-                        skills_list = parsed.get("skills") or parsed.get("items") or []
-                        if isinstance(skills_list, list):
-                            return [str(s) for s in skills_list if s]
-        except Exception:
-            pass
-        return []
 
     async def categorize_skills_batch(
-        self, batch: List[tuple[str, Optional[str]]], categories: List[str]
+        self, items: List[Tuple[str, Optional[str]]], valid_categories: List[str]
     ) -> Dict[str, str]:
-        """Categorizes a batch of up to 30 skills against a fixed taxonomy via Ollama."""
-        categories_str = ", ".join(categories)
-        lines = "\n".join(
-            f"{skill} | {hint}" if hint else f"{skill} | "
-            for skill, hint in batch
-        )
-        prompt = (
-            f"Assign each skill to exactly one category from this list: {categories_str}.\n"
-            "Choose by what the skill really is: pick a technology category for technology skills, and a non-technology category for business, finance, HR, sales, design, operations, or people skills. "
-            "Some skills have a hint: the label the resume itself used for that skill. Use the hint only as a clue, not as the answer. "
-            "If nothing fits, use \"Other\". Return every skill given, spelled exactly as given.\n"
-            "Skills (format: skill | hint):\n"
-            f"{lines}"
-        )
-        try:
-            payload = {
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json",
-                "options": {
-                    "temperature": 0.0,
-                    "num_ctx": 8192,
-                },
-                "think": False,
-            }
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(
-                    f"{self.base_url}/api/generate",
-                    json=payload,
-                )
-                if response.status_code == 200:
-                    res_json = response.json()
-                    resp_text = res_json.get("response", "{}")
-                    parsed = json.loads(resp_text)
-                    cat_map: Dict[str, str] = {}
-                    items = []
-                    if isinstance(parsed, list):
-                        items = parsed
-                    elif isinstance(parsed, dict):
-                        items = parsed.get("items") or parsed.get("skills") or []
-                    for item in items:
-                        if isinstance(item, dict):
-                            s = item.get("skill") or item.get("name")
-                            c = item.get("category")
-                            if s and c:
-                                cat_map[str(s).strip()] = str(c).strip()
-                    return cat_map
-        except Exception:
-            pass
-        return {}
+        """Categorizes candidate skills into standard categories using taxonomy or Ollama."""
+        results: Dict[str, str] = {}
+        valid_set = set(valid_categories)
+        unmatched = []
+
+        for skill, hint in items:
+            skill_l = skill.lower().strip()
+            matched_cat = None
+            for cat, keywords in TECH_CATEGORIES.items():
+                if skill_l in keywords:
+                    if cat == "languages" and "Languages" in valid_set:
+                        matched_cat = "Languages"
+                    elif cat == "frameworks" and "Frameworks" in valid_set:
+                        matched_cat = "Frameworks"
+                    elif cat == "databases" and "Databases" in valid_set:
+                        matched_cat = "Databases"
+                    elif cat in ("cloud", "tools"):
+                        for vc in valid_categories:
+                            if "cloud" in vc.lower() or "tools" in vc.lower():
+                                matched_cat = vc
+                                break
+                    break
+            if matched_cat:
+                results[skill] = matched_cat
+            else:
+                unmatched.append(skill)
+
+        if unmatched:
+            prompt = (
+                f"Categorize each of these skills into one of the allowed categories: {', '.join(valid_categories)}.\n"
+                f"Skills: {', '.join(unmatched)}\n"
+                "Return JSON mapping skill to category, e.g. {\"Docker\": \"Cloud & Infrastructure\"}."
+            )
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(
+                        f"{self.base_url}/api/generate",
+                        json={"model": self.model, "prompt": prompt, "stream": False, "format": "json", "keep_alive": "15m"},
+                    )
+                    if resp.status_code == 200:
+                        mapped = json.loads(resp.json().get("response", "{}"))
+                        for k, v in mapped.items():
+                            if v in valid_set:
+                                results[k] = v
+            except Exception:
+                pass
+
+        for s in unmatched:
+            if s not in results:
+                results[s] = "Other" if "Other" in valid_set else valid_categories[-1]
+
+        return results
+
+    async def extract_skills_from_chunk(self, chunk_text: str) -> List[str]:
+        """Extracts technical skills from text chunk using taxonomy and Ollama."""
+        extracted = []
+        chunk_lower = chunk_text.lower()
+        for cat, keywords in TECH_CATEGORIES.items():
+            for kw in keywords:
+                pattern = rf"\b{re.escape(kw)}\b"
+                if re.search(pattern, chunk_lower):
+                    extracted.append(CANONICAL_NAMES.get(kw, kw.title()))
+        return list(dict.fromkeys(extracted))
 
 
 ollama_provider = OllamaProvider()

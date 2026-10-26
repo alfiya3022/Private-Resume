@@ -1,0 +1,43 @@
+{
+  "model": "oksomu/resume-ner",
+  "evaluated_at": "2026-10-25T12:12:41Z",
+  "latency": {
+    "load_time_seconds": 86.85,
+    "inference_time_seconds": 0.55,
+    "total_time_seconds": 147.43
+  },
+  "peak_memory_mb": 225.45,
+  "performance": {
+    "skills_expected": 36,
+    "skills_detected_by_ner": 28,
+    "true_positives": 15,
+    "false_negatives": 21,
+    "false_positives": 7,
+    "precision": 0.6818,
+    "recall": 0.4167,
+    "f1": 0.5172
+  },
+  "sample_false_positives": [
+    "windowfunctions,",
+    "##ql",
+    "##pi",
+    "bi,",
+    "##loratory data analysis",
+    "human perception",
+    "ai / machine learning"
+  ],
+  "sample_false_negatives": [
+    "sql",
+    "ms sql server",
+    "t-sql",
+    "joins",
+    "ctes",
+    "window functions",
+    "advanced sql",
+    "pandas",
+    "power bi",
+    "power query"
+  ],
+  "go_no_go_decision": "NO-GO",
+  "decision_reason": "NO-GO: Latency 0.55s (passes=True), Recall 41.7% (passes=False, threshold>=70%), F1 0.52 (passes=False, threshold>=0.60). Deterministic layout and regex-based extraction is superior, zero-overhead, and more accurate without subword fragmentation."
+}

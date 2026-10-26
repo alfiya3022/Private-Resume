@@ -1,0 +1,26 @@
+{
+  "baseline_recorded_at": "2026-10-25T12:05:00Z",
+  "metrics": {
+    "total_time_seconds": 340.18,
+    "pdf_extraction_seconds": 1.53,
+    "hybrid_processing_seconds": 338.65,
+    "peak_memory_mb": 11.9,
+    "ollama_inference_calls": 1,
+    "ollama_timed_out": true
+  },
+  "counts": {
+    "skills_count": 6,
+    "projects_count": 3,
+    "experience_count": 1,
+    "education_count": 1,
+    "certifications_count": 5,
+    "custom_sections_count": 0
+  },
+  "defects_identified": {
+    "name_extraction_error": "Name was incorrectly extracted as 'Mumbai, Maharashtra' instead of 'Alfiya Shaikh'",
+    "company_title_swap": "Company was extracted as 'Design & Development Intern' instead of 'First Home Fintech Solutions'",
+    "skill_omissions": "Extracted only 6 out of 36 expected skills (omitted 30 skills including Power BI, MS SQL Server, Excel, DAX, etc.)",
+    "hidden_url_omissions": "Google Drive and GitHub links inside PDF annotations were not extracted",
+    "excessive_latency": "Extraction took 340 seconds due to sequential blocking LLM inference"
+  }
+}

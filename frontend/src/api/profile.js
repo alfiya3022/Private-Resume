@@ -166,16 +166,22 @@ export const profileApi = {
     });
   },
 
+  async getResumeStatus(resumeId) {
+    return api.request(`/resumes/${resumeId}/status`);
+  },
+
   async getResumeExtractedData(resumeId) {
     return api.request(`/resumes/${resumeId}/extracted-data`);
   },
 
-  async applyExtractedData(resumeId, { sections, overwrite_existing } = {}) {
+  async applyExtractedData(resumeId, { sections, overwrite_existing, edited_data, item_decisions } = {}) {
     return api.request(`/resumes/${resumeId}/apply-to-profile`, {
       method: 'POST',
       body: JSON.stringify({
         sections: sections || undefined,
         overwrite_existing: !!overwrite_existing,
+        edited_data: edited_data || undefined,
+        item_decisions: item_decisions || undefined,
       }),
     });
   },

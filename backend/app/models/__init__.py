@@ -6,6 +6,7 @@ from app.models.profile import (
     Experience,
     Education,
     Certification,
+    CareerKnowledgeItem,
 )
 from app.models.resume import MasterResume
 from app.models.job import Job
@@ -24,6 +25,7 @@ __all__ = [
     "Experience",
     "Education",
     "Certification",
+    "CareerKnowledgeItem",
     "MasterResume",
     "Job",
     "JobRequirement",

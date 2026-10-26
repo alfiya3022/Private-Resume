@@ -37,7 +37,7 @@ class GitHubService:
         }
 
         headers = {
-            "User-Agent": "PrivateResume-Local/1.0",
+            "User-Agent": "Verity-Local/1.0",
             "Accept": "application/vnd.github.v3+json",
         }
 
@@ -65,7 +65,7 @@ class GitHubService:
                 raw_branches = ["HEAD", "main", "master", "develop"]
                 for branch in raw_branches:
                     raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/README.md"
-                    r_resp = await client.get(raw_url, headers={"User-Agent": "PrivateResume-Local/1.0"})
+                    r_resp = await client.get(raw_url, headers={"User-Agent": "Verity-Local/1.0"})
                     if r_resp.status_code == 200 and r_resp.text.strip():
                         readme_content = r_resp.text
                         break

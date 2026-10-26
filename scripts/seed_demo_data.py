@@ -13,10 +13,10 @@ from app.models.job import Job
 db = SessionLocal()
 
 # Check if demo user exists
-user = db.query(User).filter(User.email == "demo@privateresume.local").first()
+user = db.query(User).filter(User.email == "demo@Verity.local").first()
 if not user:
     user = User(
-        email="demo@privateresume.local",
+        email="demo@Verity.local",
         hashed_password=get_password_hash("Password123!"),
         full_name="Alex Morgan",
         is_active=True,

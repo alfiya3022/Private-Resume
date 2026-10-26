@@ -1,8 +1,8 @@
-# PrivateResume
+# Verity
 
 > **Privacy-First, Local-First AI-Powered Resume Tailoring & Application Platform**
 
-PrivateResume empowers job seekers to analyze job descriptions, align real candidate evidence deterministically, progressively tailor high-density resumes, compile ATS-compliant PDFs via local LaTeX, and track the entire opportunity lifecycle — **with zero data leakage, zero hallucinations, and zero external telemetry**.
+Verity empowers job seekers to analyze job descriptions, align real candidate evidence deterministically, progressively tailor high-density resumes, compile ATS-compliant PDFs via local LaTeX, and track the entire opportunity lifecycle — **with zero data leakage, zero hallucinations, and zero external telemetry**.
 
 ---
 
@@ -25,18 +25,21 @@ React 18 + Vite (Tailwind CSS Neo-Brutalist UI)
 FastAPI Modular Monolith (Python 3.10+)
   ├── Core Security & Middleware (X-Frame-Options: SAMEORIGIN, CORS lockdown)
   ├── PyMuPDF & PyMuPDF4LLM Engine (Layout-aware text extraction & ATS audit)
-  ├── Local Ollama Provider (Qwen / Local LLM with deterministic fallbacks)
+  ├── Local Ollama Provider (Qwen 3:4b-instruct with deterministic fallbacks)
+  ├── Sentence-Transformers (BAAI/bge-small-en-v1.5 384-dim dense embeddings on CPU)
+  ├── Career Knowledge Repository (Provenance-isolated career_knowledge_items)
   ├── Deterministic Match & Scoring Engine (0-100% Estimated Job Match)
   ├── Subprocess LaTeX Compiler (pdflatex -halt-on-error -disable-installer -no-shell-escape)
-  └── PostgreSQL 15 (Docker on port 5433) & SQLAlchemy ORM (Alembic Migrations)
+  └── PostgreSQL 17 (Docker on port 5433) & SQLAlchemy ORM (Alembic Migrations)
 ```
 
 - **Frontend**: React 18, Vite, Tailwind CSS, Lucide React icons.
 - **Backend**: FastAPI, Pydantic V2, SQLAlchemy 2, Alembic, PyMuPDF, PyMuPDF4LLM.
-- **Database**: PostgreSQL 15 running in Docker (`private-resume-db` on port `5433`).
+- **Embeddings & Knowledge**: Sentence-Transformers (`BAAI/bge-small-en-v1.5` CPU inference) with persistent Docker volume caching (`hf_cache`).
+- **Database**: PostgreSQL 17 running in Docker (`private-resume-db` on port `5433`).
 - **Local AI**: Ollama (`qwen3:4b-instruct` model on port `11434`).
 - **Typesetting**: Native `pdflatex` (MiKTeX on Windows / TeX Live on Linux).
-- **Testing**: Pytest (78 automated unit/integration tests), Playwright (E2E browser tests), GitHub Actions CI.
+- **Testing**: Pytest (layered unit and integration tests), Playwright (E2E browser tests), GitHub Actions CI.
 
 ---
 
@@ -65,7 +68,7 @@ python -m venv venv
 .\venv\Scripts\activate          # Windows (or source venv/bin/activate on Unix)
 pip install -r requirements.txt
 alembic upgrade head             # Runs all migrations
-python seed.py                   # Seeds demo account (demo@privateresume.local)
+python seed.py                   # Seeds demo account (demo@Verity.local)
 uvicorn app.main:app --host 127.0.0.1 --port 8005 --reload
 ```
 
@@ -79,21 +82,21 @@ npm run dev                      # Dev server on http://localhost:5173
 
 ### 5. Access the Platform
 
-Open your browser to `http://localhost:5173`.
+Open your browser to `http://localhost:5174` (containerized) or `http://localhost:5173` (local dev).
 
-- **Demo Account**: `demo@privateresume.local`
+- **Demo Account**: `demo@Verity.local`
 - **Password**: `Password123!`
 
 ---
 
 ## 🧭 Four Core Product Areas
 
-| Product Area     | Path            | Key Capabilities                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| :--------------- | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Auth**         | `/auth`         | JWT bearer authentication, bcrypt password hashing, strict multi-tenant candidate data isolation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Profile**      | `/profile`      | Candidate Master Profile (personal details, skills, experience, projects, education, certifications) with inline Edit/Save CRUD + PyMuPDF & PyMuPDF4LLM layout-aware master resume parsing + Personal LaTeX Template Package Manager (`.tex` / `.zip`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Product Area     | Path            | Key Capabilities                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| :--------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Auth**         | `/auth`         | JWT bearer authentication, bcrypt password hashing, strict multi-tenant candidate data isolation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Profile**      | `/profile`      | Candidate Master Profile (personal details, skills, experience, projects, education, certifications) with inline Edit/Save CRUD + Sub-2-Second Deterministic Layout-Aware Master Resume Parsing with Asynchronous Polling, Multi-Signal Duplicate Consent & 100% Extraction Accuracy + Personal LaTeX Template Package Manager (`.tex` / `.zip`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Workspace**    | `/` (Workflow)  | **5-Stage Progressive Tailoring Engine**:<br>1. **Job Intake**: Opportunity metadata capture, INR compensation formatting (`₹ 12,00,000`), and JD ingestion.<br>2. **JD Analysis**: Ollama structured requirements extraction with deterministic taxonomy fallback; sentence-level Required vs. Preferred skill categorization.<br>3. **Match Evidence**: 4-category deterministic skill classification & Estimated Match Score (0–100%).<br>4. **Tailoring Studio**: Line-by-line inline editing for every section and heading, "Ask AI to Polish" contextual refinements under anti-fabrication guards, and immutable version forking (`v1` $\to$ `v2`).<br>5. **PDF**: Instant compiled PDF document preview with PDF.js yellow hover links, sub-second pdflatex compilation, one-click authenticated download, candidate-approved tracking ("Log to Tracker"), and multi-cycle workspace isolation. |
-| **Applications** | `/applications` | Pipeline tracking board (`saved`, `applied`, `assessment`, `interview`, `rejected`, `offer`, `withdrawn`), chronological interview notes, and direct download of the exact submitted PDF snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Applications** | `/applications` | Pipeline tracking board (`saved`, `applied`, `assessment`, `interview`, `rejected`, `offer`, `withdrawn`), chronological interview notes, and direct download of the exact submitted PDF snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ---
 
@@ -110,10 +113,11 @@ Candidates can upload their own preferred LaTeX resume designs in the Profile ta
 
 ## 🧪 Testing & Verification Governance
 
-PrivateResume maintains strict industry-grade layered testing governance with all results tracked in repository test workbooks:
+Verity maintains strict industry-grade layered testing governance with all results tracked in repository test workbooks:
 
 ```bash
-# Run complete backend pytest suite (49 tests)
+# Run complete backend pytest suite (83 tests across all epics including 34 Master Resume tests)
+# Run master resume generalization, layout roundtrip, and deduplication suite: pytest tests/test_master_resume_*.py -v
 cd backend
 pytest tests/ -v -m "not e2e"
 

@@ -1,0 +1,43 @@
+{
+  "personal_info": {
+    "name": "Alex Chen",
+    "email": "alex.chen@example.com",
+    "phone": "206-555-0144",
+    "location": "Seattle, WA",
+    "github_url": "github.com/alexchendev",
+    "linkedin_url": "linkedin.com/in/alexchendev",
+    "portfolio_url": "alexchen.dev"
+  },
+  "summary": "Backend developer specializing in data pipelines, database optimization, and scalable microservices with Python and Java.",
+  "expected_skills": [
+    "Python",
+    "Java",
+    "Spring Boot",
+    "MySQL",
+    "MongoDB",
+    "Kafka",
+    "Apache Spark",
+    "Linux",
+    "Docker"
+  ],
+  "experience": [
+    {
+      "company": "DataPulse Systems",
+      "title": "Data Engineer",
+      "start_date": "2020",
+      "end_date": "2023"
+    }
+  ],
+  "projects": [
+    {
+      "title": "Real-Time Telemetry Monitor",
+      "url": "github.com/alexchendev/telemetry"
+    }
+  ],
+  "education": [
+    {
+      "institution": "University of Washington",
+      "degree": "B.S. in Information Systems"
+    }
+  ]
+}

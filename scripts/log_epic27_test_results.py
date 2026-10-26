@@ -4,7 +4,7 @@ from datetime import datetime
 today = datetime.now().strftime("%Y-%m-%d")
 
 # 1. Update Automation Test Cases Workbook
-auto_path = "docs/PrivateResume_Automation_Test_Cases.xlsx"
+auto_path = "docs/Verity_Automation_Test_Cases.xlsx"
 wb_auto = openpyxl.load_workbook(auto_path)
 ws_prof_auto = wb_auto["Profile_Personal"]
 
@@ -33,7 +33,7 @@ wb_auto.save(auto_path)
 print("Automation workbook updated.")
 
 # 2. Update Manual Test Cases Workbook
-manual_path = "docs/PrivateResume_Manual_Test_Cases.xlsx"
+manual_path = "docs/Verity_Manual_Test_Cases.xlsx"
 wb_manual = openpyxl.load_workbook(manual_path)
 ws_prof_manual = wb_manual["Profile_Personal"]
 

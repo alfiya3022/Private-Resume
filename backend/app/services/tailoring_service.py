@@ -429,19 +429,57 @@ class TailoringService:
             CandidateProfile.user_id == user.id,
         ).first()
 
-        context_skills = []
+        candidate_evidence: Dict[str, Any] = {
+            "skills": [],
+            "experience": [],
+            "projects": [],
+            "certifications": [],
+            "education": [],
+        }
 
         if profile:
             skills = db.query(CandidateSkill).filter(
                 CandidateSkill.profile_id == profile.id,
             ).all()
-            context_skills = [skill.name for skill in skills]
+            candidate_evidence["skills"] = [skill.name for skill in skills]
+
+            experiences = db.query(Experience).filter(
+                Experience.profile_id == profile.id,
+            ).all()
+            candidate_evidence["experience"] = [
+                f"{exp.title} at {exp.company}: {exp.description or ''}"
+                for exp in experiences
+            ]
+
+            projects = db.query(Project).filter(
+                Project.profile_id == profile.id,
+            ).all()
+            candidate_evidence["projects"] = [
+                f"{proj.title}: {proj.description or ''} (Tech: {', '.join(proj.technologies or [])})"
+                for proj in projects
+            ]
+
+            certs = db.query(Certification).filter(
+                Certification.profile_id == profile.id,
+            ).all()
+            candidate_evidence["certifications"] = [
+                f"{c.name} by {c.issuer or ''}" for c in certs
+            ]
+
+            edus = db.query(Education).filter(
+                Education.profile_id == profile.id,
+            ).all()
+            candidate_evidence["education"] = [
+                f"{e.degree} from {e.institution}" for e in edus
+            ]
 
         refinement = await ollama_provider.refine_section(
             section=request.section,
             instruction=request.instruction,
             current_text=request.current_text or "",
-            context_skills=context_skills,
+            candidate_evidence=candidate_evidence,
+            context_skills=candidate_evidence["skills"],
+            acknowledge_unsupported=request.acknowledge_unsupported,
         )
 
         return AskAIResponse(
@@ -452,6 +490,9 @@ class TailoringService:
                 "Refinement aligned with candidate evidence.",
             ),
             factuality_checked=True,
+            has_unsupported_content=refinement.get("has_unsupported_content", False),
+            missing_evidence=refinement.get("missing_evidence", []),
+            evidence_warning=refinement.get("evidence_warning"),
         )
 
 

@@ -120,7 +120,7 @@ def test_profile_subitems_crud(client):
         "/api/v1/profile/projects",
         headers=headers,
         json={
-            "title": "PrivateResume Engine",
+            "title": "Verity Engine",
             "role": "Creator",
             "bullets": ["Engineered local LLM prompt flow"],
             "technologies": ["Python", "FastAPI"],
@@ -170,12 +170,10 @@ def test_upload_master_resume_pdf(client):
     files = {"file": ("master_resume.pdf", io.BytesIO(pdf_content), "application/pdf")}
 
     response = client.post("/api/v1/resumes", headers=headers, files=files)
-    assert response.status_code == 201
+    assert response.status_code in (201, 202)
     data = response.json()
     assert data["filename"] == "master_resume.pdf"
     assert data["file_size"] > 0
-    assert "Python" in data["extracted_skills"]
-    assert "FastAPI" in data["extracted_skills"]
     resume_id = data["resume_id"]
 
     # Verify resume listed
@@ -183,10 +181,6 @@ def test_upload_master_resume_pdf(client):
     assert resumes_res.status_code == 200
     assert len(resumes_res.json()) == 1
     assert resumes_res.json()[0]["id"] == resume_id
-
-    # Verify profile skills auto-populated
-    profile_res = client.get("/api/v1/profile", headers=headers)
-    assert len(profile_res.json()["skills"]) >= 3
 
     # Delete master resume
     del_res = client.delete(f"/api/v1/resumes/{resume_id}", headers=headers)
@@ -272,7 +266,7 @@ def test_single_master_resume_enforcement_and_replacement(client):
 
     # 1. First upload succeeds
     res1 = client.post("/api/v1/resumes", headers=headers, files=files1)
-    assert res1.status_code == 201
+    assert res1.status_code in (201, 202)
     r1_data = res1.json()
     r1_id = r1_data["resume_id"]
     assert r1_data["filename"] == "first_resume.pdf"
@@ -296,7 +290,7 @@ def test_single_master_resume_enforcement_and_replacement(client):
     # 3. Upload WITH replace=true replaces the existing master resume in-place
     files3 = {"file": ("replaced_resume.pdf", io.BytesIO(pdf2), "application/pdf")}
     res3 = client.post("/api/v1/resumes?replace=true", headers=headers, files=files3)
-    assert res3.status_code == 201
+    assert res3.status_code in (201, 202)
     r3_data = res3.json()
     assert r3_data["filename"] == "replaced_resume.pdf"
 
@@ -317,7 +311,7 @@ def test_single_master_resume_enforcement_and_replacement(client):
     pdf4 = create_synthetic_resume_pdf()
     files4 = {"file": ("fresh_resume.pdf", io.BytesIO(pdf4), "application/pdf")}
     res4 = client.post("/api/v1/resumes", headers=headers, files=files4)
-    assert res4.status_code == 201
+    assert res4.status_code in (201, 202)
     assert res4.json()["filename"] == "fresh_resume.pdf"
 
     list_res4 = client.get("/api/v1/resumes", headers=headers)
@@ -410,12 +404,12 @@ def test_reset_all_profile_preserves_master_resume(client):
     pdf_bytes = create_synthetic_resume_pdf()
     files = {"file": ("my_master_resume.pdf", io.BytesIO(pdf_bytes), "application/pdf")}
     res_upload = client.post("/api/v1/resumes", headers=headers, files=files)
-    assert res_upload.status_code == 201
+    assert res_upload.status_code in (201, 202)
 
     # Populate all 6 sections
     client.put("/api/v1/profile", headers=headers, json={"headline": "Full-Stack Dev", "summary": "Great summary"})
     client.post("/api/v1/profile/skills", headers=headers, json={"name": "Docker", "category": "DevOps"})
-    client.post("/api/v1/profile/projects", headers=headers, json={"title": "Private Resume App"})
+    client.post("/api/v1/profile/projects", headers=headers, json={"title": "Verity App"})
     client.post("/api/v1/profile/experiences", headers=headers, json={"company": "Tech Corp", "title": "Staff SWE"})
     client.post("/api/v1/profile/educations", headers=headers, json={"institution": "Stanford", "degree": "MS"})
     client.post("/api/v1/profile/certifications", headers=headers, json={"name": "Kubernetes Admin", "issuer": "CNCF"})
@@ -487,7 +481,7 @@ def test_reset_user_isolation(client):
 
 def test_apply_extracted_projects_deduplication(client, db_session):
     """Test that applying extracted project list twice leaves one project,
-    and a project with slightly different title (e.g. 'Private Resume' vs 'Private Resume [GitHub]') is not duplicated.
+    and a project with slightly different title (e.g. 'Verity' vs 'Verity [GitHub]') is not duplicated.
     """
     token = get_auth_token(client, "project_dedup_user@test.local")
     headers = {"Authorization": f"Bearer {token}"}
@@ -499,16 +493,16 @@ def test_apply_extracted_projects_deduplication(client, db_session):
         headers=headers,
         files={"file": ("dedup_resume.pdf", io.BytesIO(pdf_content), "application/pdf")},
     )
-    assert res.status_code == 201
+    assert res.status_code in (201, 202)
     resume_id = res.json()["resume_id"]
 
-    # Mock extracted data on the resume with project "Private Resume"
+    # Mock extracted data on the resume with project "Verity"
     from app.models.resume import MasterResume
     resume = db_session.query(MasterResume).filter(MasterResume.id == resume_id).first()
     resume.extracted_data = {
         "projects": [
             {
-                "title": "Private Resume",
+                "title": "Verity",
                 "description": "Local AI resume tailoring app",
                 "technologies": ["Python", "FastAPI", "React"],
                 "bullets": ["Engineered secure local extraction"],
@@ -529,7 +523,7 @@ def test_apply_extracted_projects_deduplication(client, db_session):
     # Check profile has 1 project
     prof1 = client.get("/api/v1/profile", headers=headers).json()
     assert len(prof1["projects"]) == 1
-    assert prof1["projects"][0]["title"] == "Private Resume"
+    assert prof1["projects"][0]["title"] == "Verity"
 
     # Apply same extracted project list again -> must skip and leave 1 project
     apply_res2 = client.post(
@@ -543,12 +537,12 @@ def test_apply_extracted_projects_deduplication(client, db_session):
     prof2 = client.get("/api/v1/profile", headers=headers).json()
     assert len(prof2["projects"]) == 1
 
-    # Now update extracted_data to have slightly different title: "Private Resume [GitHub]"
+    # Now update extracted_data to have slightly different title: "Verity [GitHub]"
     resume = db_session.query(MasterResume).filter(MasterResume.id == resume_id).first()
     resume.extracted_data = {
         "projects": [
             {
-                "title": "Private Resume [GitHub]",
+                "title": "Verity [GitHub]",
                 "description": "Local AI resume tailoring app with GitHub badge",
                 "technologies": ["Python", "FastAPI", "React"],
                 "bullets": ["Engineered secure local extraction"],

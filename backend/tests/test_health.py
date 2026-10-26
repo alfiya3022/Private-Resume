@@ -5,7 +5,7 @@ def test_root_endpoint(client):
     data = response.json()
     assert "name" in data
     assert "version" in data
-    assert data["name"] == "PrivateResume API"
+    assert data["name"] == "Verity API"
 
 
 def test_health_check_endpoint(client):

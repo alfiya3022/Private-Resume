@@ -1,0 +1,148 @@
+{
+  "personal_info": {
+    "name": "Alfiya Shaikh",
+    "email": "alfiya43shaikh@gmail.com",
+    "phone": "+91-8080713022",
+    "location": "Mumbai, Maharashtra",
+    "headline": "Data Analyst | SQL | Power BI",
+    "github_url": "https://github.com/alfiya3022",
+    "linkedin_url": "https://www.linkedin.com/in/alfiya-shaikh1106",
+    "portfolio_url": null
+  },
+  "summary": "Recent Engineering graduate with hands-on experience in SQL, Python, MS SQL Server, Power BI, ETL, data modeling, and data warehousing. Built end-to-end analytics solutions and interactive dashboards to deliver actionable business insights.",
+  "education": [
+    {
+      "degree": "B.E. Electronics & Telecommunication Engineering",
+      "institution": "Vidyavardhini’s College of Engineering",
+      "start_date": "2022",
+      "end_date": "2026",
+      "grade": "8.02",
+      "grade_type": "CGPA"
+    }
+  ],
+  "projects": [
+    {
+      "title": "Human Perception-Based Multi-Exposure Image Fusion Model Using Deep Learning/AI",
+      "start_date": "2025",
+      "end_date": "Present",
+      "technologies": [
+        "Python",
+        "MATLAB",
+        "CNN (VGG16)",
+        "ConvLSTM"
+      ],
+      "url": "https://github.com/alfiya3022/Human-Perception-based-Multi-Exposure-Image-Fusion-Model-Using-Deep-Learning",
+      "bullets_count": 2
+    },
+    {
+      "title": "Investment Portfolio Analytics & Trade Data Warehouse",
+      "start_date": "2026",
+      "end_date": "2026",
+      "technologies": [
+        "MS SQL Server",
+        "SQL",
+        "Power BI",
+        "DAX",
+        "Excel"
+      ],
+      "url": "https://github.com/alfiya3022/Investment-Portfolio-Trade-Management-System",
+      "bullets_count": 2
+    },
+    {
+      "title": "Telecom Customer & Revenue Analytics Platform",
+      "start_date": "2026",
+      "end_date": "2026",
+      "technologies": [
+        "MS SQL Server",
+        "SQL",
+        "Power BI",
+        "DAX"
+      ],
+      "url": "https://github.com/alfiya3022/Telecom-CRM-Billing-System",
+      "bullets_count": 2
+    }
+  ],
+  "experience": [
+    {
+      "title": "Design & Development Intern",
+      "company": "First Home Fintech Solutions",
+      "location": "Remote",
+      "start_date": "Jan 2026",
+      "end_date": "Mar 2026",
+      "bullets_count": 2
+    }
+  ],
+  "certifications": [
+    {
+      "name": "The Complete SQL Bootcamp",
+      "issuer": "Udemy",
+      "item_type": "certification",
+      "credential_url": "https://drive.google.com/file/d/1fxzPIvTcheRfb92xxF7ckBEhQArexLfv/view?usp=drive_link"
+    },
+    {
+      "name": "Complete Data Analyst Bootcamp from Basic to Advanced",
+      "issuer": "Udemy",
+      "item_type": "certification",
+      "credential_url": "https://drive.google.com/file/d/1lZvcugBAf-1RN1DNgQm7MZ3v0snS_h9z/view?usp=drive_link"
+    },
+    {
+      "name": "Google Data Analytics Professional Certificate",
+      "issuer": null,
+      "item_type": "certification",
+      "status": "Ongoing",
+      "credential_url": null
+    },
+    {
+      "name": "Research Paper Author and Patent Contributor",
+      "issuer": "Information Fusion",
+      "item_type": "achievement",
+      "status": "Ongoing",
+      "credential_url": null
+    },
+    {
+      "name": "Semi-Finalist – VCET Face-Off 2023 and Runner-Up – Oscillations Technical Paper Presentation",
+      "issuer": null,
+      "item_type": "achievement",
+      "credential_url": "https://drive.google.com/file/d/197FRo4eIP4utmBidSoiTXDm5M4cQHo1w/view?usp=drive_link"
+    }
+  ],
+  "skills_min_count": 36,
+  "expected_skills": [
+    "SQL",
+    "MS SQL Server",
+    "T-SQL",
+    "Joins",
+    "CTEs",
+    "Window Functions",
+    "Advanced SQL",
+    "Python",
+    "Pandas",
+    "NumPy",
+    "Power BI",
+    "DAX",
+    "Power Query",
+    "Data Modeling",
+    "ETL",
+    "Data Cleaning",
+    "Exploratory Data Analysis (EDA)",
+    "Statistical Analysis",
+    "KPI Reporting",
+    "Excel",
+    "Pivot Tables",
+    "XLOOKUP",
+    "Git",
+    "GitHub",
+    "Jupyter Notebook",
+    "VS Code",
+    "Agile Methodologies",
+    "SDLC",
+    "AI/Machine Learning",
+    "ConvLSTM",
+    "CNN",
+    "REST APIs",
+    "JSON",
+    "Postman",
+    "Linux",
+    "MATLAB"
+  ]
+}

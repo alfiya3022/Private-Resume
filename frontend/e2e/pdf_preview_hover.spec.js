@@ -1,15 +1,21 @@
 import { test, expect } from '@playwright/test';
 
 test('Verify PDF Previewer renders with yellow hover highlight and LinkedIn link', async ({ page }) => {
-  // Use fresh token for User 2 (Alfiya Shaikh) who has Job 17 and tailored resumes
-  const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3OTI3MDI2OTQsInN1YiI6IjIifQ.d6YPTQId474baIRIw8GP1BVEYgJ3hRoeN2U-BkIkkD0';
-
   await page.goto('http://localhost:5174/');
-  await page.evaluate((t) => {
-    localStorage.setItem('token', t);
-  }, token);
 
-  await page.goto('http://localhost:5174/');
+  // Sign In as user 2 (alfiya116shaikh@gmail.com)
+  const authNavButton = page.locator('aside button').last();
+  await authNavButton.click();
+
+  const signOutBtn = page.getByRole('button', { name: 'Sign Out' });
+  if (await signOutBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await signOutBtn.click();
+    await page.waitForTimeout(500);
+  }
+
+  await page.locator('input[type="email"]').fill('alfiya116shaikh@gmail.com');
+  await page.locator('input[type="password"]').fill('Password123!');
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
   await page.waitForTimeout(1000);
 
   // Navigate to Workspace
@@ -18,7 +24,7 @@ test('Verify PDF Previewer renders with yellow hover highlight and LinkedIn link
   await page.waitForTimeout(1000);
 
   // Select a saved job (e.g., Job 17 or any saved job) to set activeJob and activeTailoredResume
-  const savedJobBtn = page.locator('button:has-text("#17")').or(page.locator('button:has-text("Data Analyst")')).first();
+  const savedJobBtn = page.locator('button:has-text("#17")').or(page.locator('button:has-text("Data Analyst")')).or(page.locator('.max-h-44 > div')).first();
   if (await savedJobBtn.isVisible()) {
     await savedJobBtn.click();
     await page.waitForTimeout(1500);

@@ -1,83 +1,38 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Testing
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
-*.py,cover
 
-# Node / Frontend
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Node
 node_modules/
 frontend/dist/
-frontend/node_modules/
-.npm
-.eslintcache
+frontend/build/
 
-# Environment variables & secrets
+# Environment secrets
 .env
 .env.*
 !.env.example
 
-# Local storage and file artifacts
-backend/storage/
-backend/uploads/
-storage/
-uploads/
-artifacts/
-
-# LaTeX build outputs
-*.aux
-*.log
-*.out
-*.toc
-*.synctex.gz
-*.fls
-*.fdb_latexmk
-
-# Editor & OS files
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-
-# Scratch and test files
-data/
+# Generated test output
 test-results/
-frontend/test-results/
-test_*.tex
-test_*.pdf
-test_*.log
-test_*.aux
-\$testDir/
+playwright-report/
+coverage/
 
-backend/tests/fixtures/heldout/real/
+# Private uploaded resumes and generated artifacts
+storage/resumes/
+backend/storage/resumes/
+backend/storage/artifacts/
+
+# Local generated data
+*.log
+docs/
+project-tree.txt

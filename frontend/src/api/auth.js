@@ -27,6 +27,12 @@ export const authApi = {
     return api.request("/auth/me");
   },
 
+  async completeOnboarding() {
+    return api.request("/auth/onboarding/complete", {
+      method: "POST",
+    });
+  },
+
   logout() {
     api.setToken(null);
   },

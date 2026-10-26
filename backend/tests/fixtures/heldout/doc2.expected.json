@@ -1,0 +1,55 @@
+{
+  "personal_info": {
+    "name": "Maya Lin",
+    "email": "maya.lin@example.com",
+    "phone": "(415) 555-8282",
+    "location": "San Francisco, CA",
+    "linkedin_url": "linkedin.com/in/mayalin"
+  },
+  "summary": "Full-stack software developer with deep expertise in modern React frameworks, TypeScript, and high-performance asynchronous Python APIs.",
+  "expected_skills": [
+    "React",
+    "TypeScript",
+    "Python",
+    "FastAPI",
+    "Next.js",
+    "Node.js",
+    "PostgreSQL",
+    "Redis",
+    "Docker",
+    "Tailwind CSS",
+    "Jest",
+    "Git"
+  ],
+  "experience": [
+    {
+      "company": "FinTech Labs",
+      "title": "Full Stack Software Engineer",
+      "start_date": "Mar 2021",
+      "end_date": "Present"
+    }
+  ],
+  "projects": [
+    {
+      "title": "Open Source Task Workflow Engine",
+      "technologies": [
+        "TypeScript",
+        "React",
+        "Node.js"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "San Jose State University",
+      "degree": "Bachelor of Science in Software Engineering",
+      "end_date": "2021"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "AWS Certified Solutions Architect",
+      "issuer": "Amazon Web Services"
+    }
+  ]
+}

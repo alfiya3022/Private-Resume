@@ -59,6 +59,7 @@ class ExperienceBase(BaseModel):
     location: Optional[str] = None
     description: Optional[str] = None
     bullets: List[str] = []
+    technologies: List[str] = []
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     is_current: bool = False
@@ -81,6 +82,7 @@ class ExperienceUpdate(BaseModel):
     location: Optional[str] = None
     description: Optional[str] = None
     bullets: Optional[List[str]] = None
+    technologies: Optional[List[str]] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     is_current: Optional[bool] = None
@@ -117,8 +119,11 @@ class EducationUpdate(BaseModel):
 
 class CertificationBase(BaseModel):
     name: str
-    issuer: str
+    issuer: Optional[str] = None
     issue_date: Optional[str] = None
+    expiry_date: Optional[str] = None
+    item_type: Optional[str] = "certification"
+    status_note: Optional[str] = None
     credential_url: Optional[str] = None
 
 
@@ -137,6 +142,9 @@ class CertificationUpdate(BaseModel):
     name: Optional[str] = None
     issuer: Optional[str] = None
     issue_date: Optional[str] = None
+    expiry_date: Optional[str] = None
+    item_type: Optional[str] = None
+    status_note: Optional[str] = None
     credential_url: Optional[str] = None
 
 

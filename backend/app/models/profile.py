@@ -39,6 +39,8 @@ class CandidateSkill(Base):
     proficiency = Column(String(50), nullable=True)  # Beginner, Intermediate, Advanced
 
     profile = relationship("CandidateProfile", back_populates="skills")
+    source_evidence = Column(Text, nullable=True)
+    review_status = Column(String(50), default="confirmed", nullable=True)
 
 
 class Project(Base):
@@ -68,6 +70,7 @@ class Experience(Base):
     location = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     bullets = Column(JSON, default=list, nullable=False)
+    technologies = Column(JSON, default=list, nullable=False)
     start_date = Column(String(50), nullable=True)
     end_date = Column(String(50), nullable=True)
     is_current = Column(Boolean, default=False, nullable=False)
@@ -96,8 +99,35 @@ class Certification(Base):
     id = Column(Integer, primary_key=True, index=True)
     profile_id = Column(Integer, ForeignKey("candidate_profiles.id", ondelete="CASCADE"), index=True, nullable=False)
     name = Column(String(255), nullable=False)
-    issuer = Column(String(255), nullable=False)
+    issuer = Column(String(255), nullable=True)
     issue_date = Column(String(50), nullable=True)
+    expiry_date = Column(String(50), nullable=True)
+    item_type = Column(String(50), default="certification", nullable=False)
+    status_note = Column(String(100), nullable=True)
     credential_url = Column(String(255), nullable=True)
 
     profile = relationship("CandidateProfile", back_populates="certifications")
+
+
+class CareerKnowledgeItem(Base):
+    __tablename__ = "career_knowledge_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    knowledge_type = Column(String(50), nullable=False, default="skill")  # skill, experience, project, certification, domain
+    source_type = Column(String(50), nullable=False)  # master_resume, job_description, user_correction, user_profile
+    source_id = Column(String(100), nullable=True)  # resume_id or job_id
+    original_text = Column(String(255), nullable=False)
+    normalized_term = Column(String(255), nullable=False, index=True)
+    category = Column(String(100), nullable=True)
+    aliases = Column(JSON, default=list, nullable=False)
+    source_evidence = Column(Text, nullable=True)
+    source_page = Column(Integer, nullable=True)
+    review_status = Column(String(50), default="extracted", nullable=False)  # extracted, confirmed, rejected, user_added
+    confidence_score = Column(Integer, default=100, nullable=False)
+    embedding = Column(JSON, nullable=True)  # 384-dimensional embedding vector stored as JSON array
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User", backref="career_knowledge_items")
+

@@ -1,0 +1,51 @@
+{
+  "personal_info": {
+    "name": "Priya Sharma",
+    "email": "priya.sharma@example.com",
+    "phone": "+91 9876543210",
+    "location": "Mumbai, India",
+    "github_url": "github.com/priyasharma-dev",
+    "linkedin_url": "linkedin.com/in/priyasharma"
+  },
+  "education": [
+    {
+      "institution": "Veermata Jijabai Technological Institute (VJTI), Mumbai",
+      "degree": "Bachelor of Technology in Computer Engineering",
+      "grade": "87.4%"
+    }
+  ],
+  "expected_skills": [
+    "C++",
+    "Java",
+    "Python",
+    "SQL",
+    "JavaScript",
+    "React",
+    "Node.js",
+    "Express",
+    "PostgreSQL",
+    "MongoDB",
+    "Git"
+  ],
+  "experience": [],
+  "projects": [
+    {
+      "title": "Campus Placement Portal",
+      "technologies": [
+        "React",
+        "Node.js",
+        "PostgreSQL"
+      ]
+    },
+    {
+      "title": "Smart Traffic Flow Predictor",
+      "technologies": [
+        "Python",
+        "Scikit-learn"
+      ]
+    }
+  ],
+  "custom_sections": [
+    "HONORS & ACHIEVEMENTS"
+  ]
+}

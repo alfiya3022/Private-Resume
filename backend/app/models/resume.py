@@ -17,4 +17,11 @@ class MasterResume(Base):
     extracted_data = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     
+    # Asynchronous parse lifecycle tracking
+    parse_status = Column(String(50), default="complete", nullable=False)  # queued, running, complete, failed
+    parse_stage = Column(String(255), nullable=True)
+    parse_error = Column(Text, nullable=True)
+    parse_started_at = Column(DateTime(timezone=True), nullable=True)
+    parse_finished_at = Column(DateTime(timezone=True), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

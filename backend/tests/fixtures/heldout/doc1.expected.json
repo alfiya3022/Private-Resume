@@ -1,0 +1,48 @@
+{
+  "personal_info": {
+    "name": "Devon Vance",
+    "email": "devon.vance@example.com",
+    "phone": "+1 (512) 555-0199",
+    "location": "Austin, TX",
+    "linkedin_url": "linkedin.com/in/devonvance",
+    "github_url": "github.com/devonvance"
+  },
+  "summary": "Cloud engineer with 4+ years of experience automating distributed systems and resilient microservices. Proven expertise in container orchestration and declarative infrastructure.",
+  "expected_skills": [
+    "Python",
+    "Go",
+    "Docker",
+    "Kubernetes",
+    "PostgreSQL",
+    "Redis",
+    "AWS",
+    "Terraform",
+    "Prometheus",
+    "Git"
+  ],
+  "education": [
+    {
+      "institution": "University of Texas at Austin",
+      "degree": "B.S. in Computer Science",
+      "grade": "3.85 / 4.0"
+    }
+  ],
+  "experience": [
+    {
+      "company": "CloudScale Inc",
+      "title": "Site Reliability Engineer",
+      "start_date": "2022",
+      "end_date": "Present"
+    }
+  ],
+  "projects": [
+    {
+      "title": "Distributed Log Aggregator",
+      "technologies": [
+        "Go",
+        "Docker",
+        "Redis"
+      ]
+    }
+  ]
+}

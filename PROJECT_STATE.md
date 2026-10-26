@@ -1,9 +1,31 @@
-# PrivateResume - Current Project State
+# Verity - Current Project State
 
 ## Project phase
-Epic 29 — Local LLM-First Master Resume Ingestion, Whole-Document Extraction & Categorized Skill Pipeline Complete. All Project Epics (0 through 29) Complete & Verified.
+
+Epic 38 — UI Refinement, Routing State Fixes, and First-Time User Onboarding Complete. All Project Epics (0 through 38) Complete & Verified.
 
 ## Current status
+
+- **Epic 38 — UI Refinement, Routing State Fixes, and First-Time User Onboarding**:
+  - Implemented visual design alignment matching `Verity Dashboard UI Showcase`: warm cream backgrounds (`#FFFDF8`, `#FAF7F0`), coral primary actions (`#E05A47`), charcoal borders, card layouts, and responsive desktop/mobile styling.
+  - Auth Page Overhaul: Replaced plain login form with a dual-column layout matching Showcase Panel 1 featuring a Welcome Value Proposition panel ("Your Resume. Your Data. Your Control.", local Ollama privacy badges, neo-brutalist document illustration) and an Auth Panel with accessible tab toggling between Sign In and Create Account, password masking, bcrypt credential notice, and 1-click offline demo login.
+  - First-Time User Onboarding Workflow: Dedicated welcome modal for new users with a 6-step workflow overview, primary CTA to add a master resume, and secondary CTAs ("Skip for now", "I'll do this later"). Added `onboarding_completed` boolean field to `User` model with Alembic migration `014_add_onboarding_completed_to_users.py`, backend persistence endpoint `POST /api/v1/auth/onboarding/complete`, and automatic onboarding completion upon resume upload. Added "Welcome Guide" button to sidebar to allow users to revisit the guide at any time.
+  - Bug A (Workspace Stage Reset on Page Reload): Fixed bug where refreshing on any workspace stage reset the workflow to Stage 1. Added bidirectional synchronization of `currentStep` and `activeJob` with URL query parameters (`?stage=X&jobId=Y`) and `sessionStorage`, added popstate event listeners for browser Back/Forward navigation, and ensured active job context is preserved on reload.
+  - Bug B (Evidence Navigation Loss of Workspace Context): Fixed bug where reviewing evidence in the Profile page reset the workspace stage when returning. Stage 3 now passes originating stage and job context into the profile navigation route (`/profile?from=workspace&stage=3`), and the "← Return to Workspace" banner restores the candidate directly to their originating stage without losing context.
+  - Automated Verification: Created and verified backend test suite `backend/tests/test_onboarding_and_auth.py` (100% pass) and Playwright E2E browser test suite `frontend/e2e/test_routing_and_onboarding.spec.js` (4/4 tests passing). Existing full candidate journey E2E test `frontend/e2e/workflow.spec.js` verified passing with zero regressions.
+- **Epic 37 — Ollama AI Interaction Audit, Custom Prompt Primacy & Evidence Integrity**:
+  - Identified and resolved root causes of rigid AI behavior: fixed silent 15s timeout fallback that returned static canned strings, removed hardcoded summary tailoring directives overriding custom prompts, and converted auto-submitting directive chips into optional editable shortcuts.
+  - Rebuilt AI section editing pipeline (`backend/app/services/ai/ollama_provider.py`, `backend/app/schemas/tailored_resume.py`, `backend/app/services/tailoring_service.py`): user custom instructions are primary; supported sections include summary, skills, experience, projects, education, certifications.
+  - Implemented deterministic evidence checking against candidate profile: unverified skills trigger clear alert banners with specific unbacked items highlighted. Added `acknowledge_unsupported` support allowing candidate approval without repeating warnings.
+  - Configured `qwen3:4b-instruct` (2.5 GB) with `keep_alive: "15m"` as default for responsive interactive refinement (~1.2s warm eval); kept `qwen3:8b` (5.2 GB) available for deep reasoning.
+  - Added test suite `backend/tests/test_ai_refinement.py` covering unmodified prompt passthrough, evidence warnings, user acknowledgment, and fallback responsiveness. 5/5 tests passing.
+- **Epic 36 — Master Resume Extraction Pipeline Audit, Cleanup & LayoutLMv3 Implementation**:
+  - Full extraction pipeline audit and removal of obsolete/redundant extraction components: deleted experimental Ollama extraction methods (`extract_full_resume_structure`, `extract_skills_from_chunk`, `categorize_skills_batch`) and retired obsolete tests (`test_llm_first_parsing.py`, `test_parsing_optimization.py`). Preserved Ollama for JD analysis (`analyze_job_description`) and section refinement (`refine_section`).
+  - Implemented layout-aware extraction with LayoutLMv3 (`microsoft/layoutlmv3-base`) and PyMuPDF text/geometry feature extraction (`backend/app/services/ai/layoutlm_schema.py`, `layoutlm_service.py`).
+  - Implemented reproducible LayoutLMv3 fine-tuning and evaluation modules (`backend/app/services/ai/layoutlm_training.py`, `backend/scripts/train_layoutlm.py`, `backend/scripts/evaluate_layoutlm.py`) with BIO token classification schemas across 47 labels.
+  - Implemented layout-aware deterministic record grouping engine (`backend/app/services/ai/record_grouping.py`) separating personal info, summary, education, experience, projects, skills, certifications/achievements, and custom sections.
+  - Streamlined `pdf_service.py` to direct layout extraction and record assembly without regressions across multiline project titles, badges (`[Live]`), multi-role experience records, or reading orders.
+  - Full suite of 34 master resume extraction, integration, and roundtrip tests passing 100% in Docker container.
 - **Epic 0 — Foundation**: Git repo, React Vite Tailwind frontend, FastAPI modular monolith, PostgreSQL, Docker Compose, root documentation.
 - **Epic 1 — Auth & User Isolation**: Bcrypt passwords, JWT bearer tokens, user registration/login, user isolation middleware.
 - **Epic 2 — Master Profile & PDF Ingestion**: PyMuPDF extraction, candidate profile CRUD (personal, skills, experience, projects, education, certifications), file upload storage.
@@ -92,7 +114,7 @@ Epic 29 — Local LLM-First Master Resume Ingestion, Whole-Document Extraction &
 - **Epic 22 — Runtime Remediation: Visible LinkedIn Header & PDF.js Interactive Yellow Link Hover**:
   - Bug 1 (LinkedIn Header Visibility) Root Cause & Fix: Candidate profile had `https://www.linkedin.com/feed/` which was wiped to empty by an overly aggressive regex in `latex_service.py`, causing `\ifx\LinkedIn\empty` to suppress the header. Replaced regex with robust URL parsing, added `\def\linkedinurl{}` into `backend/app/templates/default/resume.tex`, refactored `_header.tex` to render `\href{\linkedinurl}{\underline{LinkedIn}}` directly below GitHub, and updated database profile. PyMuPDF verified live PDF output contains `LinkedIn` at `y = 67.4-81.4` right below `GitHub` (`y = 56.9-68.0`) linking to `https://www.linkedin.com/in/alfiya-shaikh1106`.
   - Bug 2 (Yellow Hover Highlight) Root Cause & Fix:
-    1. Container dependency desync: `pdfjs-dist` was installed on the Windows host but not inside `privateresume_frontend` Docker container. Installed `pdfjs-dist@3.11.174` in the container.
+    1. Container dependency desync: `pdfjs-dist` was installed on the Windows host but not inside `Verity_frontend` Docker container. Installed `pdfjs-dist@3.11.174` in the container.
     2. API incompatibility: `pdfjs-dist@3.x` does not provide static `AnnotationLayer.render`. Refactored `PdfPreviewer.jsx` to instantiate `new pdfjsLib.AnnotationLayer(...)` and call instance `.render()`.
     3. Worker blob restriction: Fetching `blob:` URLs inside web workers failed in browser; resolved by fetching `ArrayBuffer` in main thread and passing `data: new Uint8Array(buffer)` to `getDocument`.
     4. Link styling & overlay: Rendered coordinate-exact `.pdf-interactive-link-overlay` elements styled with yellow neo-brutal hover `#FEF08A` (`rgba(254, 240, 138, 0.75)`) and dashed borders.
@@ -104,7 +126,7 @@ Epic 29 — Local LLM-First Master Resume Ingestion, Whole-Document Extraction &
   - Candidate Review & Agency Protection: Extracted data does NOT silently overwrite reviewed Profile data. Built comparison diff engine (`compare_extracted_data_with_profile`) and selective approval workflow (`apply_extracted_data_to_profile`). Added `ReviewExtractionModal.jsx` and "Review Extraction" button on master resume cards, allowing candidates to inspect extracted data, view comparison badges (New Value, Different/Conflict, Matches Profile), choose sections to apply, and toggle safe merging (`overwrite_existing=false` by default).
   - Safe Pre-Generation Missing-Information Recovery: Created `ResolutionService` (`backend/app/services/resolution_service.py`) enforcing the strict source precedence: 1) Tailored Resume, 2) Reviewed CandidateProfile, 3) Master Resume Extraction, 4) None. Resolution is ephemeral, does not mutate saved database records, enriches only included items with missing metadata (LinkedIn, GitHub, repository links, credential URLs, dates), and strictly prohibits restoring intentionally cleared fields, excluded projects, or omitted bullet points.
   - LaTeX + PDF & Validation Integration: Wired `resolution_service.resolve_effective_content` into `latex_service.py` (`generate_resume_artifacts`) and `validation_service.py`. The SWE template formatting, 6-section order, PDF link annotations, and PDF.js yellow link hover behavior remain 100% stable. Provenance tracking is surfaced to the candidate via an informative non-intrusive banner in Stage 5.
-  - Automated & Layered Testing: Created `tests/test_master_resume_integration.py` covering extraction, upload diff, selective application, agency preservation, and recovery precedence. All 70 backend unit and integration tests passing in `pytest`. All 3 frontend E2E browser tests passing in Playwright. Test case workbooks (`PrivateResume_Automation_Test_Cases.xlsx` and `PrivateResume_Manual_Test_Cases.xlsx`) updated with executed results.
+  - Automated & Layered Testing: Created `tests/test_master_resume_integration.py` covering extraction, upload diff, selective application, agency preservation, and recovery precedence. All 70 backend unit and integration tests passing in `pytest`. All 3 frontend E2E browser tests passing in Playwright. Test case workbooks (`Verity_Automation_Test_Cases.xlsx` and `Verity_Manual_Test_Cases.xlsx`) updated with executed results.
 
 - **Epic 24 — Targeted Master Resume Extraction Improvement & Clean Review UI**:
   - Work Experience Extraction: Enhanced deterministic parsing in `pdf_service.py` to seamlessly capture multiple roles at the same organization (promotions or transfers), wrapped multi-line bullet continuations without losing bullets, location parsing, and `is_current` active role flags.
@@ -119,7 +141,7 @@ Epic 29 — Local LLM-First Master Resume Ingestion, Whole-Document Extraction &
   - Multi-Line Project Header Desynchronization Fix: State-aware sequential line parsing separates Project Title, Date Line, Tech Line, and Bullets across multiple lines without false project initialization.
   - Link Badge Stripping: Cleaned link badges (`[Live]`, `[GitHub]`, `[Demo]`, `[Code]`, `[Website]`, `(Live)`, `(Demo)`) from project titles while ensuring badges are never falsely treated as technical skills.
   - Date Range Splitting Resilience: Replaced flawed character-class regex with non-capturing group `(?:\s*(?:[\-–—/]+|\bto\b)\s*)`, preventing `to` character class corruption where "Present" was truncated to "Presen".
-  - Consecutive Boundary Identification: Added lookahead and structural signal detection to identify project titles lacking pipe or bracket characters (e.g. `Private Resume — AI-Powered Resume Application` and `Deep Learning-Based Image Fusion`) without absorbing them into preceding bullets.
+  - Consecutive Boundary Identification: Added lookahead and structural signal detection to identify project titles lacking pipe or bracket characters (e.g. `Verity — AI-Powered Resume Application` and `Deep Learning-Based Image Fusion`) without absorbing them into preceding bullets.
   - Standalone Technology List Recognition: Correctly identifies comma-separated technical skills on standalone lines without requiring explicit `Technologies:` prefixes, distinguishing them from action-verb bullet sentences.
   - Accurate Dual Link Association: Supported extraction of both `github_url` and `live_url` per project without premature loop breaks, preserving strict single-assignment tracking to prevent link leakage across projects.
   - Real-World Fixture Verification: Validated on `SWE(2).pdf`, successfully extracting all 3 projects with exact titles, dates, technologies, bullets, and the `https://firsthomefintech.ae` live URL.
@@ -163,49 +185,144 @@ Epic 29 — Local LLM-First Master Resume Ingestion, Whole-Document Extraction &
   - Data Integration & Non-Breaking Storage: Handled skill dicts (`{"name": ..., "category": ...}`) and legacy string skills uniformly in `ProfileService.compare_extracted_data_with_profile` and `apply_extracted_data_to_profile`. Leveraged existing `CandidateSkill.category` database column with 0 schema migrations or frontend contract breaks required.
   - Verification & Test Coverage: Added 5 comprehensive automated tests in `backend/tests/test_llm_first_parsing.py`, unit test for deterministic experience parser in `test_jd_analysis.py`, and project re-upload deduplication test in `test_profile_and_resume.py`. All 42 tests across 6 core test suites passing with 100% success.
 
+- **Epic 30 — Locked Resume Ingestion & Career Knowledge Architecture**:
+  - Structured Prompting & High-Performance Extraction: Replaced vague Ollama instructions with explicit JSON output schemas in `extract_skills_from_chunk` and `categorize_skills_batch`. Replaced sequential chunk wait loops with bounded concurrent processing (`asyncio.gather(semaphore=2)`) and reduced chunk count ($1500 \to 3500$ chars), slashing extraction roundtrips and token cache allocation ($8192 \to 2048$ tokens).
+  - RapidFuzz & Source Evidence Grounding: Upgraded `appears_in_source` from strict single-chunk substring matching to full-document grounding using `rapidfuzz` partial token matching and industry canonical aliases (e.g. Postgres $\leftrightarrow$ PostgreSQL, React $\leftrightarrow$ React.js, AWS $\leftrightarrow$ Amazon Web Services, K8s $\leftrightarrow$ Kubernetes). Valid extracted terms are never discarded due to normalization. Attached exact source evidence lines (`source_evidence`) to skills and experiences.
+  - Unknown Information & Section Preservation: Extended `segment_sections` so unknown/unfamiliar section headings (e.g., "Career Highlights", "Professional Journey", "Technical Contributions") are captured and preserved under `custom_sections` rather than silently dropped.
+  - Persistent Career Knowledge & Provenance Isolation: Created `CareerKnowledgeItem` model and Alembic migration `012_add_career_knowledge_and_evidence`. Strictly segregated candidate demonstrated skills (`source_type="master_resume"`, `"user_profile"`, `"user_correction"`) from job description required skills (`source_type="job_description"`).
+  - Semantic Retrieval & Similarity Classification: Implemented 5-way relationship classification (`Exact match`, `Known alias`, `Semantically related concept`, `Broader or narrower concept`, `Uncertain relationship`) powered by 384-dimensional vector embeddings with graceful fallback.
+  - User-Facing Processing States & Anti-Duplicate UX: Added staged progression feedback in `MasterResumeBanner.jsx` ("Uploading resume file...", "Validating PDF...", "Extracting resume content...", "Interpreting history...", "Verifying evidence...", "Preparing review diff..."). Disabled upload buttons during active requests to prevent duplicate submissions. Added custom section and source evidence inspection to `ReviewExtractionModal.jsx`.
+  - Developer Diagnostics: Added `ProcessingDiagnostics` in `backend/app/core/diagnostics.py` tracking stage durations, Ollama model invocations, and error summaries without leaking PII or raw resume text.
+  - Full Test Suite Passing: 13/13 unit and integration tests passing in under 1 second. Frontend production build passing with 0 errors.
+
+- **Epic 31 — Real Sentence-Transformers Model (BAAI/bge-small-en-v1.5) & Persistent Cache Architecture**:
+  - Model Integration: Configured `BAAI/bge-small-en-v1.5` explicitly inside the running backend container (`Verity_backend`), generating real 384-dimensional dense semantic embeddings.
+  - Dependencies & Container Environment: Added PyTorch CPU (`torch>=2.2.0 --extra-index-url https://download.pytorch.org/whl/cpu`) and `sentence-transformers>=3.0.0` via Dockerfile and `requirements.txt` with zero GPU/CUDA packages.
+  - Persistent Volume Cache: Added named Docker volume `hf_cache` mounted at `/root/.cache/huggingface` (`HF_HOME`), persisting downloaded weights across container restarts.
+  - Settings Integration: Configured `EMBEDDING_MODEL` and `HF_HOME` in `backend/app/core/config.py` Settings class.
+  - Fail-Loud Error Handling: Upgraded `CareerKnowledgeService.generate_embedding()` to fail loudly with actionable error logs rather than silently masking missing models or degraded vectors. Fallback is permitted strictly in isolated unit tests when `allow_fallback=True`.
+  - Test & Verification: Semantic similarity tests passed (`Python` vs `Django` score 0.6115 vs `Corporate tax` 0.4395). Pytest suite (`test_career_knowledge_and_ingestion.py`, 13/13) passed. Backend health endpoint returns 200 with all subsystems connected. Frontend builds with 0 errors.
+
+- **Epic 32 — Master Resume PDF Parsing Pipeline Optimization & Ollama Context Tuning**:
+  - Timer Fix in `ollama_provider.py`: Resolved `AttributeError: module 'httpx._types' has no attribute 'time'` by replacing invalid `httpx._types.time.perf_counter()` with native Python `time.perf_counter()`.
+  - Redundant LLM Inference Elimination: Added `"skills": []` to `LLMResumeExtraction` schema and unified single-pass structural extraction prompt in `extract_full_resume_structure`. Reused structured extraction skills and project technologies in `pdf_service.py`, eliminating redundant secondary chunked skill extractions (`extract_skills_from_chunk`). Built fast hybrid categorization (`skill_pipeline.categorize_skills_hybrid`) using deterministic taxonomy and label hints first, with Ollama batch categorization invoked only for ambiguous skills.
+  - Ollama Context & Hardware Optimization: Tuned structural extraction context from `num_ctx: 8192` down to `num_ctx: 3072` and `num_predict: 1536`. Context reduction reduced VRAM usage from 4.2 GB to 3.4 GB, increased GPU offloading from 55% to 68%, and accelerated evaluation speed from ~5.0 tok/s to 13.8 tok/s (2.7x faster). Total LLM calls during resume upload dropped from 4 to 1, cutting total upload inference time from 156s down to ~85s.
+  - Verification & Test Coverage: Added `backend/tests/test_parsing_optimization.py` with 5 automated unit and integration tests passing in 0.62s. Full backend test suite passing (32 tests). Frontend production bundle cleanly built with Vite in 10.28s.
+
+- **Epic 33 — Master Resume Extraction Wizard Hardening & React Error Boundary Resilience**:
+  - Root Cause Diagnosed: Navigating to the Skills tab in `ReviewExtractionModal.jsx` crashed React with unhandled render exceptions (`Objects are not valid as a React child`). Structured skill objects (`{name, category, source_evidence}`) were rendered directly as children or passed into `.toLowerCase()`. In addition, an early `return null` before Hook declarations violated the Rule of Hooks, and `App.jsx` lacked a top-level error boundary, causing the entire `#root` container to unmount into a white blank screen.
+  - Safe String Sanitization: Built robust sanitizers `getSkillLabel()`, `getSkillCategory()`, and `getSkillEvidence()` ensuring only verified string primitives are rendered as badge children and checked in filter routines.
+  - Unconditional Hook Execution: Reordered `ReviewExtractionModal.jsx` so all React hooks (`useState`, `useEffect`, `useMemo`) execute unconditionally at top-level.
+  - Modal-Level Edit State Preservation: Established an interactive `editedData` state at modal level, preserving candidate edits (contact info, skills, projects, experience, education, certifications, custom sections) across all 7 stepper tabs without discarding modifications upon tab switching.
+  - Interactive Skills Workflow: Added real-time search filtering, dynamic category filter chips (All, Programming Language, Frontend, Backend, Database, DevOps, AI & Machine Learning, Tools & Platforms, Soft Skills, Other), skill deletion (`×`), and an inline quick-add form (`Add missing skill...`).
+  - Top-Level Error Boundary: Implemented `ErrorBoundary.jsx` and wrapped `App.jsx` main content so unforeseen render exceptions are isolated with a user-friendly recovery card instead of unmounting the application into a white blank screen.
+  - Backend Schema Update: Updated `ApplyExtractedDataRequest` and `apply_extracted_data_to_profile` in `profile_service.py` to optionally accept and persist `edited_data`.
+  - Testing & Verification: Created and executed Playwright E2E test `frontend/e2e/test_skills_tab_blank.spec.js` asserting complete 7-section stepper traversal, skills search, category filtering, add/remove actions, and state preservation with zero console page errors. Full backend suite passed (29 selected tests). Frontend production build passed cleanly (`npm run build`). Test case workbooks updated (`AUT-MR-020`, `TC-MR-014`, `BUG-WIZ-001`).
+
+- **Epic 34 — Deterministic Master Resume Extraction Pipeline & Asynchronous Autofill**:
+  - Sub-2-Second End-to-End Extraction Engine: Benchmarked end-to-end extraction via `backend/scripts/baseline_runner.py` at 1.66s (down from 340.18s baseline, >200x speedup), delivering 100% precision and 100% recall against reference ground truth (36/36 expected skills, 3/3 projects, 1/1 experience, 1/1 education, 5/5 certifications/achievements, and 100% accurate personal contact info).
+  - Asynchronous Non-Blocking Upload Lifecycle: Upgraded `POST /api/v1/resumes` to return HTTP 202 Queued (`parse_status="queued"`, `resume_id`), delegating extraction to non-blocking background tasks and preventing request timeouts. Added `GET /api/v1/resumes/{resume_id}/status` returning active lifecycle state (`queued` $\to$ `running` $\to$ `complete`) and granular stage feedback. Added Alembic migration `013_master_resume_extraction_pipeline.py`.
+  - Frontend Polling & Progressive Extraction Review: Configured `ProfilePage.jsx` and `api/profile.js` to poll `/status` endpoint with reactive UI indicators and automatically pop up `ReviewExtractionModal.jsx` upon completion.
+  - Candidate Agency & Duplicate Control: Preserved candidate sovereignty during profile autofill (`POST /api/v1/resumes/{resume_id}/apply-to-profile`). Verified `overwrite_existing=False` preserves existing candidate entries while appending new records, and `overwrite_existing=True` cleanly updates fields with parsed details.
+  - PII Protection & Section Retention: Verified non-standard headings (e.g. volunteering, publications) are preserved in `custom_sections` without data loss, and sensitive candidate PII (phone, email, full resume text) is strictly excluded from logger streams.
+  - Automated Verification: All 17 automated tests passing across `test_master_resume_integration.py` and `test_master_resume_extraction.py` (100% success). Frontend production build cleanly compiled in 9.68s. QA test workbooks updated with `AUT-MR-021` through `AUT-MR-026` and `TC-MR-015` through `TC-MR-017`.
+
+- **Epic 35 — Master Resume Generalization, Duplicate Consent & Full Extraction Audit (Phases 3–5 Complete)**:
+  - Phase 3 Corrections Learning & Memory:
+    - User edits in extraction review modal persist as `CareerKnowledgeItem` (`source_type="user_correction"`).
+    - Automatically applied on subsequent uploads and parsing runs when candidate similarity >= 0.85, eliminating repeated manual corrections.
+  - Phase 4.1 Taxonomy Synchronization:
+    - Resolved skill category mapping via canonical aliases and category prototypes.
+    - Full retention of Soft Skills and Languages without dropping or miscategorizing.
+    - Resolved zero-count taxonomy edge case ensuring uncatalogued skills remain fully visible and categorized.
+  - Phase 4.2 & 4.3 Comprehensive Wizard Fields & 4-Way Consent Cards:
+    - Complete field coverage in `ReviewExtractionModal.jsx`: Contact summary, Project role, repository URL (`github_url`), live URL (`live_url`), Experience technologies, location, organization URL, Education grade/CGPA, academic description, and Certifications status, expiry date, credential URL.
+    - 4-way duplicate consent cards: `keep_existing` (retain candidate record), `replace_with_new` (update with extracted data), `save_separate` (store both independently), and `discard` (drop extracted record).
+  - Phase 4.4 Generic Token Duplicate Guard:
+    - Removed hardcoded brittle `KNOWN_DISTINCT_PAIRS`.
+    - Prohibits auto-merge whenever extra differentiating tokens are present (e.g. `SQL` vs `MySQL`, `Java` vs `JavaScript`, `React` vs `React Native`, `C` vs `C++`), preventing false-positive conflation without rigid lists.
+    - Format/punctuation variations (`Power BI` vs `PowerBI`, `Window Functions` vs `WindowFunctions`) accurately match (>= 0.95).
+  - Phase 5 Synthetic Layout Generator & Roundtrip Suite:
+    - `backend/scripts/gen_layouts.py`: Generated 10 synthetic layout variants across single-column, two-column, modern headers, bullet structures, and table skill formats.
+    - `backend/tests/test_master_resume_layouts_roundtrip.py`: All 6 tests passing in 16.51s, including 10-layout roundtrip, password-protected PDF, corrupt byte payload, textless scanned PDF rejection, user correction override, and generic token guard.
+  - Phase 5 Real-Template Profile Application:
+    - `backend/tests/test_master_resume_apply_real_templates.py`: Verified apply-to-profile succeeds across all 6 real-world resume templates without schema validation errors in 26.57s.
+  - Held-Out Document Generalization (5 Documents):
+    - `doc1_two_column_sidebar.pdf`: 2-column sidebar layout correctly parsed across vertical reading order; extracted all 10/10 skills, structured personal info, experience, and projects.
+    - `doc2_title_case_headings.pdf`: Title Case and mixed-case headings (`Work Experience`, `Technical Skills`, `Education Background`) parsed with 100% section retention and 12/12 skills.
+    - `doc3_unlinked_plain_urls.pdf`: Plain text unlinked URLs parsed cleanly without PDF link annotations or bracket artifacts (9/9 skills retained).
+    - `doc4_fresher_achievements.pdf`: Fresher resume with 0 work experience cleanly handled without fabricating placeholder employment; captured 2 projects and 3 achievements/certifications.
+    - `doc5_scanned_image_only.pdf`: Scanned image-only document explicitly raises `ValueError("No readable text found in this PDF. Scanned or image-only PDFs are not supported.")` without silent hallucination or crash.
+  - 100% Offline Independence:
+    - Deterministic extraction pipeline verified fully functional when Ollama is offline or unreachable (`ConnectionRefusedError` simulated with 0 runtime errors).
+  - Open-Source Resume NER Evaluation (`oksomu/resume-ner`):
+    - Rigorously benchmarked and rejected as **NO-GO** due to 41.67% recall and 0.5172 F1 (below threshold >= 70% recall, >= 0.60 F1) and severe subword token fragmentation (`##ql`, `##pi`). Deterministic layout parsing proved vastly superior, zero-overhead, and more accurate.
+  - Latency & Resource Benchmarks:
+    - Memory RSS: Initial idle container 177.99 MB, Cold parse peak 667.02 MB RSS (13.067s wall-clock), Warm parse 667.03 MB RSS (0.309s wall-clock, sub-second execution).
+    - HTTP Upload API Response: 358.0 ms cold-start, 36.4 ms warm-start.
+  - Complete Test Pass:
+    - Backend: 34/34 Master Resume tests passing (across layout roundtrip, real templates, duplicate consent, offline independence, and extraction).
+    - Frontend: Playwright E2E lifecycle test `test_master_resume_lifecycle.spec.js` passed in 26.3s; `test_skills_tab_blank.spec.js` passing.
+    - Frontend production build: `npm run build` succeeds in 12.14s with 0 errors.
+    - QA workbooks updated with `AUT-MR-027`..`AUT-MR-038` and `TC-MR-018`..`TC-MR-026`.
+
 ## Completion standard
-- Backend & frontend servers actively running and healthy (FastAPI on 8005, Vite on 5173).
+
+- Backend & frontend servers actively running and verified healthy: Docker containerized environment on host port 8000 for FastAPI (`/api/v1/health` returning 200 OK with Postgres, Ollama, and LaTeX connected) and host port 5174 for Vite/React (with local dev fallback on 8005/5173).
+- PostgreSQL 17 database active and healthy on port 5433 with persistent storage.
+- Sentence-Transformer `BAAI/bge-small-en-v1.5` loaded and active with persistent `hf_cache` volume, generating 384-d semantic embeddings.
 - Frontend production bundle cleanly built with Vite (`npm run build`).
 - PDF compilation verified working in under 1 second without timing out.
 - JD extraction verified extracting comprehensive skillsets and accurate years.
 - All constitutional rules and architecture constraints respected (local-first, zero telemetry, non-fabrication, version immutability, modular monolith).
 
 ## Current next step
-Ready for end-user testing and production usage at `http://localhost:5173`.
+
+Ready for end-user testing and production usage at `http://localhost:5174` (containerized) or `http://localhost:5173` (local dev).
 
 ## Locked top-level product areas
+
 1. Auth
 2. Profile
 3. Workspace
 4. Applications
 
 ## Locked architecture
+
 Modular monolith with React + FastAPI + PostgreSQL, plus local Ollama, local file storage, and local LaTeX during V1 development.
 
 ## Locked design
+
 Cream/off-white editorial/modern neo-brutalist SaaS visual direction inspired by the supplied reference image, adapted rather than copied. Workspace is a progressive workflow, not a giant vertically stacked page.
 
 ## Locked stack
-React, Vite, JavaScript, Tailwind CSS, Python, FastAPI, Pydantic, SQLAlchemy, PostgreSQL, Alembic, Ollama, PyMuPDF, LaTeX, Pytest, Playwright, Postman, Git/GitHub, Docker/Docker Compose, GitHub Actions.
+
+React, Vite, JavaScript, Tailwind CSS, Python, FastAPI, Pydantic, SQLAlchemy, PostgreSQL, Alembic, Ollama, Sentence-Transformers (`BAAI/bge-small-en-v1.5`), PyTorch (CPU), PyMuPDF, LaTeX, Pytest, Playwright, Postman, Git/GitHub, Docker/Docker Compose, GitHub Actions.
 
 ## Runtime placement
+
 - React: Docker application environment; local Vite development is allowed for fast iteration
 - FastAPI: Docker
-- PostgreSQL: Docker with persistent volume
+- PostgreSQL: Docker with persistent volume (`postgres_data`, PostgreSQL 17 on port 5433)
 - Ollama: local/native
 - LaTeX: included in the backend Docker image
+- Embeddings Cache: Docker persistent named volume `hf_cache` mounted at `/root/.cache/huggingface` (`HF_HOME`)
 
 ## QA test management
+
 - Manual and automation testing are maintained in separate module-wise Excel workbooks.
 - Test cases are added and execution results are logged after the relevant feature reaches its testing stage.
 - CI checks and merge must pass before the project advances to the next feature.
 
 ## Known TBD items
+
 - Standardized local Ollama model: `qwen3:4b-instruct` (supports fast local structured extraction, hybrid resume parsing, and tailoring).
 - Deployment target (intentionally TBD for V1 local-first product)
 
 ## Known non-goals
+
 No autonomous job applications, no fabricated qualifications, no recruiter portal, no candidate ranking, no V1 job-board integrations, no unnecessary infrastructure additions.
 
 ## Current issues
-None. Epics 0 through 29 verified and passing.
+
+None. Epics 0 through 38 verified and passing.

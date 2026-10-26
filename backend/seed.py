@@ -1,5 +1,5 @@
 """
-PrivateResume - Seed Data Script
+Verity - Seed Data Script
 Initializes a demo candidate user account with full profile, verified skills,
 target job, tailored resume, and tracked application for quick onboarding and evaluation.
 """
@@ -23,7 +23,7 @@ def seed():
     db = SessionLocal()
     try:
         # 1. Demo User
-        demo_email = "demo@privateresume.local"
+        demo_email = "demo@Verity.local"
         existing = db.query(User).filter(User.email == demo_email).first()
         if existing:
             print(f"User '{demo_email}' already exists. Skipping user creation.")
@@ -182,7 +182,7 @@ Requirements:
             print("Created Tracked Application Record.")
 
         print("\n[OK] Seed completed successfully!")
-        print("Demo credentials: demo@privateresume.local / Password123!\n")
+        print("Demo credentials: demo@Verity.local / Password123!\n")
     finally:
         db.close()
 

@@ -1,11 +1,15 @@
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, Query
+from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, Query, BackgroundTasks
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
+from app.models.resume import MasterResume
 from app.schemas.resume import (
     MasterResumeResponse,
+    ResumeUploadQueuedResponse,
+    ResumeStatusResponse,
     ParsedResumeResponse,
     ApplyExtractedDataRequest,
     ExtractedDataComparisonResponse,
@@ -16,35 +20,68 @@ from app.services.pdf_service import pdf_service
 router = APIRouter()
 
 
-@router.post("", response_model=ParsedResumeResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ResumeUploadQueuedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_master_resume(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     replace: bool = Query(False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Upload master resume PDF, parse text with PyMuPDF, segment sections, extract structured data and skills."""
-    resume = await profile_service.process_master_resume_upload(
+    """Upload master resume PDF and queue background extraction pipeline."""
+    filename = (file.filename or "").lower()
+    if not filename.endswith(".pdf"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only PDF files are supported. DOCX, TXT, and scanned image formats are not accepted.",
+        )
+
+    resume = await profile_service.prepare_master_resume_upload(
         db=db, user_id=current_user.id, file=file, replace=replace
     )
-    
-    sections = pdf_service.segment_sections(resume.raw_text)
-    skills = pdf_service.detect_skills_deterministically(resume.raw_text)
-    profile = profile_service.get_or_create_profile(db, current_user.id)
-    comparison = profile_service.compare_extracted_data_with_profile(
-        profile, resume.extracted_data or {}
+
+    if not current_user.onboarding_completed:
+        current_user.onboarding_completed = True
+        db.commit()
+
+    background_tasks.add_task(
+        profile_service.process_master_resume_background,
+        resume_id=resume.id,
+        user_id=current_user.id,
     )
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={
+            "resume_id": resume.id,
+            "filename": resume.filename,
+            "file_size": resume.file_size,
+            "parse_status": "queued",
+            "message": "Resume upload accepted and queued for background extraction",
+        },
+    )
+
+
+@router.get("/{resume_id}/status", response_model=ResumeStatusResponse)
+def get_resume_status(
+    resume_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve current background parsing status and stage for a resume."""
+    resume = db.query(MasterResume).filter(
+        MasterResume.id == resume_id, MasterResume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Master resume not found"
+        )
 
     return {
         "resume_id": resume.id,
-        "filename": resume.filename,
-        "file_size": resume.file_size,
-        "raw_text": resume.raw_text,
-        "sections": sections,
-        "extracted_skills": skills,
-        "extracted_data": resume.extracted_data,
-        "comparison": comparison,
-        "message": f"Successfully parsed {resume.filename} ({len(skills)} skills detected)",
+        "parse_status": resume.parse_status or "complete",
+        "parse_stage": resume.parse_stage or ("Complete" if resume.parse_status == "complete" else "Queued"),
+        "parse_error": resume.parse_error,
     }
 
 
@@ -81,6 +118,9 @@ def apply_extracted_data_to_profile(
         resume_id=resume_id,
         sections=request.sections,
         overwrite_existing=request.overwrite_existing,
+        edited_data=request.edited_data,
+        item_decisions=request.item_decisions,
+        remember_corrections=request.remember_corrections,
     )
 
 

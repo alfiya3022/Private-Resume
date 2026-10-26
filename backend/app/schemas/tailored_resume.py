@@ -59,6 +59,7 @@ class AskAIRequest(BaseModel):
     section: str = Field(..., description="Section being refined (e.g. 'summary', 'experience', 'projects')")
     instruction: str = Field(..., description="Prompt or instruction for revision")
     current_text: Optional[str] = Field(None, description="Current content of the section or bullet")
+    acknowledge_unsupported: bool = Field(False, description="Whether candidate acknowledged unverified claims")
 
 
 class AskAIResponse(BaseModel):
@@ -66,6 +67,9 @@ class AskAIResponse(BaseModel):
     suggested_text: str
     explanation: str
     factuality_checked: bool = True
+    has_unsupported_content: bool = False
+    missing_evidence: List[str] = Field(default_factory=list)
+    evidence_warning: Optional[str] = None
 
 
 class TailoredResumeResponse(BaseModel):

@@ -4,7 +4,7 @@ from datetime import datetime
 today = datetime.now().strftime("%Y-%m-%d")
 
 # 1. Update Automation Test Cases
-auto_path = "docs/PrivateResume_Automation_Test_Cases.xlsx"
+auto_path = "docs/Verity_Automation_Test_Cases.xlsx"
 wb_auto = openpyxl.load_workbook(auto_path)
 
 # Match_Analysis sheet
@@ -76,7 +76,7 @@ for row in idx_ws_auto.iter_rows(min_row=2):
 wb_auto.save(auto_path)
 
 # 2. Update Manual Test Cases
-man_path = "docs/PrivateResume_Manual_Test_Cases.xlsx"
+man_path = "docs/Verity_Manual_Test_Cases.xlsx"
 wb_man = openpyxl.load_workbook(man_path)
 
 ws_match_man = wb_man["Match_Analysis"]

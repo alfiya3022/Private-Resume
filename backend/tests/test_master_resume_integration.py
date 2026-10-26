@@ -33,7 +33,7 @@ Jan 2023 - Present
 • Containerized microservices using Docker and orchestrated CI/CD pipelines.
 
 PROJECTS
-Private Resume - AI Resume Tailor
+Verity - AI Resume Tailor
 Technologies: Python, FastAPI, React, PostgreSQL
 • Local-first privacy-focused resume generator using deterministic extraction.
 • Implemented LaTeX compilation and PyMuPDF text extraction.
@@ -70,7 +70,7 @@ AWS Certified Cloud Practitioner - Amazon Web Services - 2023
     page.insert_link({
         "kind": fitz.LINK_URI,
         "from": proj_rect,
-        "uri": "https://github.com/alfiyashaikh/privateresume",
+        "uri": "https://github.com/alfiyashaikh/Verity",
     })
 
     # Add cert credential link
@@ -122,8 +122,8 @@ def test_pdf_service_extract_full_resume_data(tmp_path):
     # Verify projects extracted with github_url
     assert len(extracted["projects"]) >= 1
     p0 = extracted["projects"][0]
-    assert "Private Resume" in p0["title"]
-    assert "https://github.com/alfiyashaikh/privateresume" == p0["github_url"]
+    assert "Verity" in p0["title"]
+    assert "https://github.com/alfiyashaikh/Verity" == p0["github_url"]
 
     # Verify education
     assert len(extracted["education"]) >= 1
@@ -147,13 +147,14 @@ def test_master_resume_upload_and_review_flow(client):
     files = {"file": ("alfiya_resume.pdf", io.BytesIO(pdf_bytes), "application/pdf")}
 
     upload_res = client.post("/api/v1/resumes", headers=headers, files=files)
-    assert upload_res.status_code == 201
+    assert upload_res.status_code in [201, 202]
     upload_data = upload_res.json()
     resume_id = upload_data["resume_id"]
 
-    assert upload_data["extracted_data"] is not None
-    assert upload_data["comparison"] is not None
-    assert upload_data["extracted_data"]["personal_info"]["name"] == "Alfiya Shaikh"
+    # Check status endpoint
+    status_res = client.get(f"/api/v1/resumes/{resume_id}/status", headers=headers)
+    assert status_res.status_code == 200
+    assert status_res.json()["parse_status"] in ["queued", "running", "complete"]
 
     # 1. Fetch extracted data endpoint
     get_res = client.get(f"/api/v1/resumes/{resume_id}/extracted-data", headers=headers)
@@ -185,7 +186,7 @@ def test_master_resume_upload_and_review_flow(client):
     assert prof["linkedin_url"] == "https://linkedin.com/in/alfiyashaikh"
     assert prof["github_url"] == "https://github.com/alfiyashaikh"
     assert len(prof["projects"]) >= 1
-    assert prof["projects"][0]["title"] == "Private Resume - AI Resume Tailor"
+    assert prof["projects"][0]["title"] == "Verity - AI Resume Tailor"
 
 
 def test_apply_extracted_data_agency_no_silent_overwrite(client):
@@ -540,9 +541,9 @@ def test_extract_projects_from_swe2_pdf_fixture():
     assert "lead management" in p0["bullets"][0]
     assert "encrypted database backups" in p0["bullets"][1]
 
-    # Project 2: Private Resume
+    # Project 2: Verity
     p1 = projs[1]
-    assert "Private Resume — AI-Powered Resume Application" in p1["title"]
+    assert "Verity — AI-Powered Resume Application" in p1["title"]
     assert "FastAPI" in p1["technologies"]
     assert "SQLAlchemy" in p1["technologies"]
     assert "Ollama" in p1["technologies"]
@@ -611,5 +612,73 @@ C++, TensorRT, OpenCV
     assert p1["live_url"] == "https://edge-demo.org"
     assert p1["github_url"] == ""  # Did not leak p0's github URL
     assert len(p1["bullets"]) == 2
+
+
+def test_extract_projects_inline_colon_separation_aftab_fixture():
+    """Regression test: verify inline title:description bullet formatting separates titles and descriptions cleanly."""
+    import os
+    fixture_path = "/app/tests/fixtures/Mohd_Aftab_Shaikh_Systems_Support_Engineer_Final.pdf"
+    if not os.path.exists(fixture_path):
+        fixture_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "fixtures", "Mohd_Aftab_Shaikh_Systems_Support_Engineer_Final.pdf"))
+    if not os.path.exists(fixture_path):
+        pytest.skip("Mohd_Aftab_Shaikh_Systems_Support_Engineer_Final.pdf fixture not found")
+
+    data = pdf_service.extract_full_resume_data(fixture_path)
+    projs = data.get("projects", [])
+    assert len(projs) == 2
+
+    # Project 1
+    p0 = projs[0]
+    assert p0["title"] == "System Automation & Monitoring Scripts"
+    expected_b0 = (
+        "Developed Python and shell scripts for system health checks, "
+        "log analysis, alerting, and proactive issue detection, significantly reducing manual intervention."
+    )
+    assert len(p0["bullets"]) == 1
+    assert p0["bullets"][0] == expected_b0
+    assert p0["description"] == expected_b0
+    assert "checks" not in p0["technologies"]
+    assert "log analysis" not in p0["technologies"]
+
+    # Project 2
+    p1 = projs[1]
+    assert p1["title"] == "Windows System Optimization Script (Batch Automation)"
+    expected_b1 = (
+        "Built batch automation for system optimization, registry tuning, "
+        "telemetry control, privilege validation, and structured logging."
+    )
+    assert len(p1["bullets"]) == 1
+    assert p1["bullets"][0] == expected_b1
+    assert p1["description"] == expected_b1
+    assert "optimization" not in p1["technologies"]
+    assert "registry tuning" not in p1["technologies"]
+
+
+def test_extract_projects_multiple_description_bullets_association():
+    """Verify that projects with multiple description bullets keep all bullets attached to the correct project."""
+    raw_proj = """System Automation & Monitoring Scripts: Developed Python and shell scripts for system health checks.
+• Integrated Prometheus and Grafana alerting to monitor host CPU and memory saturation.
+• Automated weekly incident reports, eliminating 4 hours of recurring administrative overhead.
+
+Windows System Optimization Script (Batch Automation): Built batch automation for system optimization.
+• Tuned registry settings and telemetry controls across 120 client endpoints.
+• Implemented role-based privilege validation ensuring non-root execution safety.
+"""
+    projs = pdf_service._extract_projects(raw_proj, links=[])
+    assert len(projs) == 2
+
+    p0 = projs[0]
+    assert p0["title"] == "System Automation & Monitoring Scripts"
+    assert len(p0["bullets"]) == 3
+    assert p0["bullets"][0] == "Developed Python and shell scripts for system health checks."
+    assert "Integrated Prometheus" in p0["bullets"][1]
+    assert "Automated weekly incident reports" in p0["bullets"][2]
+
+    p1 = projs[1]
+    assert p1["title"] == "Windows System Optimization Script (Batch Automation)"
+    assert len(p1["bullets"]) == 3
+    assert p1["bullets"][0] == "Built batch automation for system optimization."
+    assert "Tuned registry settings" in p1["bullets"][1]
+    assert "Implemented role-based privilege validation" in p1["bullets"][2]
 
 

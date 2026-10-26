@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "PrivateResume API"
+    PROJECT_NAME: str = "Verity API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
 
@@ -25,6 +25,15 @@ class Settings(BaseSettings):
     # Ollama Local AI
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "qwen3:4b-instruct"
+
+    # Embeddings
+    EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
+    HF_HOME: str = "/root/.cache/huggingface"
+
+    # LayoutLMv3 Master Resume Extraction
+    LAYOUTLM_MODEL_NAME_OR_PATH: str = "microsoft/layoutlmv3-base"
+    LAYOUTLM_DEVICE: str = "cpu"
+    ENABLE_LAYOUTLM_EXTRACTION: bool = True
 
     # Storage
     STORAGE_DIR: str = "./storage"

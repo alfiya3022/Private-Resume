@@ -60,6 +60,7 @@ class LLMResumeExtraction(BaseModel):
     experience: List[LLMExperienceItem] = Field(default_factory=list)
     projects: List[LLMProjectItem] = Field(default_factory=list)
     certifications: List[LLMCertificationItem] = Field(default_factory=list)
+    skills: List[str] = Field(default_factory=list)
 
 
 class LLMChunkSkills(BaseModel):

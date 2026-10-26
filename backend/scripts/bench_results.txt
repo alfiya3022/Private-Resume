@@ -1,0 +1,10 @@
+===================================================================================================================
+Document File & Description                  | Apply Status | Duration (s) | Skills   | Projects | Experience
+===================================================================================================================
+Alfiya_resume_DA.pdf (Reference LaTeX)       | 200          | 1.020        | 36       | 3        | 1         
+Alfiya_Nvidia.pdf (Single-page LaTeX)        | 200          | 0.529        | 23       | 3        | 1         
+DATA_Resume_temp1.pdf (Sidebar/Multi-column) | 200          | 0.745        | 31       | 10       | 3         
+DATA_Resume_temp4.pdf (Symbol-delimited)     | 200          | 1.113        | 35       | 2        | 2         
+resume_DA.pdf (Word Plain via Print-to-PDF)  | 200          | 1.048        | 42       | 3        | 1         
+resume template_2.pdf (Icon-bullet Template) | 200          | 0.296        | 9        | 2        | 2         
+===================================================================================================================

@@ -1,0 +1,5 @@
+{
+  "is_scanned_image": true,
+  "expected_status": "failed",
+  "expected_error": "Could not parse text or structured data from uploaded PDF: Scanned image or non-selectable text PDF"
+}

@@ -4,7 +4,7 @@ from datetime import datetime
 today = datetime.now().strftime("%Y-%m-%d")
 
 # 1. Update Automation Test Cases Workbook
-auto_path = "docs/PrivateResume_Automation_Test_Cases.xlsx"
+auto_path = "docs/Verity_Automation_Test_Cases.xlsx"
 wb_auto = openpyxl.load_workbook(auto_path)
 ws_mr_auto = wb_auto["Master_Resume"]
 
@@ -79,7 +79,7 @@ wb_auto.save(auto_path)
 print("Automation workbook updated successfully.")
 
 # 2. Update Manual Test Cases Workbook
-manual_path = "docs/PrivateResume_Manual_Test_Cases.xlsx"
+manual_path = "docs/Verity_Manual_Test_Cases.xlsx"
 wb_manual = openpyxl.load_workbook(manual_path)
 ws_mr_manual = wb_manual["Master_Resume"]
 
@@ -95,7 +95,7 @@ manual_tests = [
         "Master_Resume",
         "Single Master Resume Enforcement & Replace Workflow",
         "Verify candidate can maintain only one active Master Resume PDF and replace or delete it seamlessly",
-        "User is logged into PrivateResume with or without an existing Master Resume",
+        "User is logged into Verity with or without an existing Master Resume",
         "Valid resume PDF (e.g. Resume.pdf)",
         "1. Go to Profile page.\n2. When no resume exists, observe 'Upload Master PDF' button.\n3. Upload a resume.\n4. Observe that additive upload button disappears and 'Active Master Resume' section displays with 'Review Extraction', 'Replace PDF', and trash (delete) icons.\n5. Click 'Replace PDF' and select a new file.\n6. Confirm resume is replaced in-place without creating a duplicate record.\n7. Click trash icon to delete resume.\n8. Verify resume is deleted and upload button reappears.",
         "Only one active Master Resume exists at any time; replacing updates in-place; deleting allows re-uploading without duplicates on page refresh.",

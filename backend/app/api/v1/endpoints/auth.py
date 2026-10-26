@@ -45,3 +45,15 @@ def login(login_in: UserLogin, db: Session = Depends(get_db)):
 def read_current_user(current_user: User = Depends(get_current_user)):
     """Fetch the currently authenticated user's profile."""
     return current_user
+
+
+@router.post("/onboarding/complete", response_model=UserResponse)
+def complete_onboarding(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark the candidate's first-time onboarding flow as completed."""
+    current_user.onboarding_completed = True
+    db.commit()
+    db.refresh(current_user)
+    return current_user
