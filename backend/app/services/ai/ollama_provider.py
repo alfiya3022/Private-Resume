@@ -1,10 +1,13 @@
 import json
+import logging
 import re
 import time
 from typing import Dict, List, Optional, Any, Tuple
 import httpx
 from app.core.config import settings
 from app.schemas.analysis import StructuredJDAnalysis
+
+logger = logging.getLogger(__name__)
 
 # Categorized taxonomy for deterministic extraction and validation
 TECH_CATEGORIES = {
@@ -211,8 +214,12 @@ class OllamaProvider:
                                 if item not in existing:
                                     parsed_dict.setdefault(cat, []).append(item)
                         return StructuredJDAnalysis(**parsed_dict)
-        except Exception:
-            pass
+        except httpx.TimeoutException:
+            logger.warning("Ollama inference timed out after 60s for section '%s'. Falling back to deterministic refinement.", section)
+        except httpx.ConnectError:
+            logger.warning("Ollama service unreachable at %s. Falling back to deterministic refinement.", self.base_url)
+        except Exception as e:
+            logger.warning("Ollama refinement exception: %s. Falling back to deterministic refinement.", e)
 
         return self.deterministic_jd_extraction(raw_jd_text)
 
@@ -398,6 +405,12 @@ class OllamaProvider:
         if context_skills:
             evidence_summary_lines.append(f"Verified Skills: {', '.join(context_skills)}")
         if candidate_evidence:
+            if candidate_evidence.get("vector_grounded_evidence"):
+                vector_lines = []
+                for ev in candidate_evidence["vector_grounded_evidence"]:
+                    ev_text = ev.get("source_evidence") or ev.get("term") or ev.get("original_text")
+                    vector_lines.append(f"- {ev.get('term', '')}: {ev_text} (Source: {ev.get('source_type', 'stored evidence')})")
+                evidence_summary_lines.append("Semantically Retrieved Career Evidence (pgvector):\n" + "\n".join(vector_lines))
             if candidate_evidence.get("experience"):
                 evidence_summary_lines.append(f"Experience: {'; '.join(candidate_evidence['experience'][:3])}")
             if candidate_evidence.get("projects"):
@@ -416,9 +429,10 @@ class OllamaProvider:
             f"Verified Candidate Evidence Context:\n{evidence_summary}\n\n"
             "Guidelines:\n"
             "1. Execute the candidate's instruction directly and completely. Do not replace it with predefined templates.\n"
-            "2. Ground qualifications, technical skills, and achievements in the candidate's verified evidence whenever possible.\n"
-            "3. If the user asks for feedback, critique, or advice, return that constructive feedback clearly in suggested_text.\n"
-            "4. Return strictly a valid JSON object matching this schema:\n"
+            "2. Ground qualifications, technical skills, and achievements strictly in the candidate's verified evidence and semantically retrieved career evidence. Never fabricate metrics, experience, or qualifications.\n"
+            "3. If candidate evidence is insufficient or missing to fulfill the instruction without inventing claims, clearly state the missing evidence in the explanation rather than inventing qualifications.\n"
+            "4. If the user asks for feedback, critique, or advice, return that constructive feedback clearly in suggested_text.\n"
+            "5. Return strictly a valid JSON object matching this schema:\n"
             '{\n  "suggested_text": "string",\n  "explanation": "string"\n}'
         )
 
@@ -444,8 +458,12 @@ class OllamaProvider:
                     if "suggested_text" in parsed_dict and parsed_dict["suggested_text"]:
                         suggested_text = parsed_dict["suggested_text"]
                         explanation = parsed_dict.get("explanation", f"Applied instruction: {instruction}")
-        except Exception:
-            pass
+        except httpx.TimeoutException:
+            logger.warning("Ollama inference timed out after 60s for section '%s'. Falling back to deterministic refinement.", section)
+        except httpx.ConnectError:
+            logger.warning("Ollama service unreachable at %s. Falling back to deterministic refinement.", self.base_url)
+        except Exception as e:
+            logger.warning("Ollama refinement exception: %s. Falling back to deterministic refinement.", e)
 
         # If Ollama didn't return a valid revision, use deterministic fallback responsive to instruction
         if not suggested_text:

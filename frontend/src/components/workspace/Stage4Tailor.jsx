@@ -1307,8 +1307,8 @@ export default function Stage4Tailor({
 
       {/* Ask AI Consultation Modal */}
       {aiModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="card-brutal bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-4 p-6 border-2 border-charcoal shadow-brutal font-mono animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
+          <div className="card-brutal bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-4 p-4 sm:p-6 border-2 border-charcoal shadow-brutal font-mono animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b-2 border-charcoal pb-3">
               <div className="flex items-center space-x-2">
                 <Sparkles className="w-5 h-5 text-coral" />

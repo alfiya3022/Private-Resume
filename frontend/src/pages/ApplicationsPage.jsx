@@ -209,20 +209,20 @@ export default function ApplicationsPage({ currentUser }) {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <div className="relative">
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-initial">
               <Search className="w-3.5 h-3.5 text-charcoal-muted absolute left-2.5 top-2.5" />
               <input
                 type="text"
                 placeholder="Search company or title..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-brutal pl-8 pr-3 py-1.5 text-xs w-48 sm:w-64"
+                className="input-brutal pl-8 pr-3 py-1.5 text-xs w-full sm:w-64"
               />
             </div>
             <button
               onClick={loadApplications}
-              className="p-2 border-2 border-charcoal hover:bg-cream-bg transition-colors"
+              className="p-2 border-2 border-charcoal hover:bg-cream-bg transition-colors shrink-0"
               title="Refresh applications"
             >
               <RefreshCw className="w-3.5 h-3.5 text-charcoal" />

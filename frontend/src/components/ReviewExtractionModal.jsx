@@ -457,27 +457,27 @@ export default function ReviewExtractionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-xs font-mono">
-      <div className="bg-white border-2 border-charcoal shadow-brutal max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-charcoal/60 backdrop-blur-xs font-mono">
+      <div className="bg-white border-2 border-charcoal shadow-brutal max-w-4xl w-full max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
         {/* Modal Header */}
-        <div className="p-4 border-b-2 border-charcoal bg-cream flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <FileText className="w-5 h-5 text-coral shrink-0" />
-            <div>
-              <h2 className="text-base font-bold text-charcoal tracking-tight">
+        <div className="p-3 sm:p-4 border-b-2 border-charcoal bg-cream flex items-center justify-between">
+          <div className="flex items-center space-x-2 min-w-0 pr-2">
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-coral shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-charcoal tracking-tight truncate">
                 Review Extracted Resume Data
               </h2>
-              <p className="text-xs text-charcoal-muted truncate max-w-md">
+              <p className="text-[11px] sm:text-xs text-charcoal-muted truncate max-w-xs sm:max-w-md">
                 Source Document: <span className="font-semibold text-charcoal">{filename}</span>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 border border-charcoal hover:bg-white text-charcoal transition-colors cursor-pointer"
+            className="p-1 border border-charcoal hover:bg-white text-charcoal transition-colors cursor-pointer shrink-0"
             title="Close review modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
@@ -1576,8 +1576,8 @@ export default function ReviewExtractionModal({
         </div>
 
         {/* Modal Stepper & Action Controls */}
-        <div className="p-4 border-t-2 border-charcoal bg-cream flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center space-x-2 w-full sm:w-auto">
+        <div className="p-3 sm:p-4 border-t-2 border-charcoal bg-cream flex flex-col sm:flex-row items-center justify-between gap-3 overflow-y-auto">
+          <div className="flex items-center justify-between sm:justify-start space-x-2 w-full sm:w-auto">
             <button
               onClick={handlePrevTab}
               disabled={currentTabIndex <= 0}
@@ -1603,42 +1603,44 @@ export default function ReviewExtractionModal({
             </button>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto justify-end">
-            <label className="flex items-center space-x-1.5 text-xs text-charcoal cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={rememberCorrections}
-                onChange={(e) => setRememberCorrections(e.target.checked)}
-                className="rounded-none border-charcoal accent-coral h-4 w-4 cursor-pointer"
-              />
-              <span title="Persists any corrections or duplicate resolutions made in this review to automatically guide future resume uploads.">
-                Remember corrections
-              </span>
-            </label>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-end">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+              <label className="flex items-center space-x-1.5 text-xs text-charcoal cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberCorrections}
+                  onChange={(e) => setRememberCorrections(e.target.checked)}
+                  className="rounded-none border-charcoal accent-coral h-4 w-4 cursor-pointer"
+                />
+                <span title="Persists any corrections or duplicate resolutions made in this review to automatically guide future resume uploads.">
+                  Remember corrections
+                </span>
+              </label>
 
-            <label className="flex items-center space-x-1.5 text-xs text-charcoal cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={overwriteExisting}
-                onChange={(e) => setOverwriteExisting(e.target.checked)}
-                className="rounded-none border-charcoal accent-coral h-4 w-4 cursor-pointer"
-              />
-              <span title="When unchecked, only fills empty fields and adds new items without touching your existing profile entries.">
-                Overwrite existing
-              </span>
-            </label>
+              <label className="flex items-center space-x-1.5 text-xs text-charcoal cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={overwriteExisting}
+                  onChange={(e) => setOverwriteExisting(e.target.checked)}
+                  className="rounded-none border-charcoal accent-coral h-4 w-4 cursor-pointer"
+                />
+                <span title="When unchecked, only fills empty fields and adds new items without touching your existing profile entries.">
+                  Overwrite existing
+                </span>
+              </label>
+            </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
               <button
                 onClick={onClose}
-                className="btn-secondary text-xs py-2 px-3 cursor-pointer"
+                className="btn-secondary text-xs py-2 px-3 cursor-pointer flex-1 sm:flex-initial"
               >
                 Cancel
               </button>
               <button
                 onClick={handleApply}
                 disabled={applying}
-                className="btn-primary text-xs py-2 px-4 flex items-center space-x-1.5 cursor-pointer"
+                className="btn-primary text-xs py-2 px-4 flex items-center justify-center space-x-1.5 cursor-pointer flex-1 sm:flex-initial"
               >
                 {applying ? (
                   <>

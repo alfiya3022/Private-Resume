@@ -81,7 +81,7 @@ export default function MasterResumeBanner({
                 </span>
               </div>
 
-              <div className="flex items-center space-x-1.5 shrink-0 self-end sm:self-auto">
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end">
                 <button
                   type="button"
                   onClick={() => handleOpenReview(r.id)}

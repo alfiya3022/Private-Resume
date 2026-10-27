@@ -2,10 +2,27 @@
 
 ## Project phase
 
-Epic 38 — UI Refinement, Routing State Fixes, and First-Time User Onboarding Complete. All Project Epics (0 through 38) Complete & Verified.
+Epic 40 — Comprehensive Exception Handling & Failure Recovery Verified. All Project Epics (0 through 40) Complete & Verified.
 
 ## Current status
 
+- **Epic 40 — Comprehensive Exception Handling & Failure Recovery**:
+  - Audited critical paths: FastAPI routes, DB transactions (`get_db`), PDF ingestion (`pdf_service`), vector search (`career_knowledge_service`), Ollama calls (`ollama_provider`), AI section editing (`tailoring_service`), and global error handling (`global_exception_handler`).
+  - Database transactional integrity: Updated `get_db()` with `except Exception: db.rollback(); raise` to ensure automatic rollback on unhandled endpoint errors, preventing dangling uncommitted transactions.
+  - Information disclosure protection: Configured `global_exception_handler` to sanitize internal server errors (`Internal server error occurred`) and hide tracebacks when `settings.DEBUG` is false.
+  - Safe PDF handling: Added strict `fitz.FileDataError` and `Exception` handling across `extract_text_from_pdf_plain`, `extract_links_from_pdf`, and `extract_layout_lines` to reject corrupt/unreadable files with clean `ValueError` and ensure open document handles are closed.
+  - Vector search resilience: Vector retrieval failures in `search_similar_evidence` are logged and raised as structured `RuntimeError` rather than crashing the process, with graceful fallback in `ask_ai_edit` marking `retrieval_degraded = True` without inventing evidence.
+  - Ollama connectivity & timeout resiliency: Added timeout and connection error handlers in `ollama_provider.py` (`httpx.TimeoutException`, `httpx.ConnectError`) falling back to deterministic refinement and logging warning diagnostics.
+  - Full test suite verification: 133/133 tests passing (100% pass rate) including dedicated failure recovery suite `test_failure_recovery.py`.
+- **Epic 39 — Native PostgreSQL pgvector End-to-End Implementation & Vector Evidence Grounding**:
+  - Upgraded PostgreSQL container image to `pgvector/pgvector:pg17` and unified `db` service definition into root `docker-compose.yml` with health checks, network aliases, and persistent volume preservation (`private_resume_postgres_data`).
+  - Added reversible Alembic migration `015_enable_pgvector.py` enabling PostgreSQL `vector` extension, safely migrating all 832 historical JSON embeddings to native `vector(384)`, creating an HNSW cosine index (`ix_career_knowledge_items_embedding_hnsw`), with full rollback support (`downgrade` verified).
+  - Updated SQLAlchemy model `CareerKnowledgeItem.embedding` to `Vector(384)` with `pgvector.sqlalchemy`.
+  - Implemented database-side cosine distance vector retrieval (`search_similar_evidence`) with HNSW acceleration and SQLite fallback for in-memory unit tests.
+  - Connected vector evidence retrieval into `TailoringService.ask_ai_edit` and `OllamaProvider.refine_section`, grounding AI revisions in semantically retrieved candidate career evidence and enforcing anti-fabrication rules.
+  - Fixed test fixture assertion in `tests/test_master_resume_integration.py` to recognize Verity branding.
+  - Added comprehensive vector test suite `backend/tests/test_pgvector_evidence.py` verifying persistence, similarity ordering, user isolation, empty evidence handling, and native PostgreSQL execution.
+  - Verified full backend test suite: 126/126 tests passing (100% pass rate).
 - **Epic 38 — UI Refinement, Routing State Fixes, and First-Time User Onboarding**:
   - Implemented visual design alignment matching `Verity Dashboard UI Showcase`: warm cream backgrounds (`#FFFDF8`, `#FAF7F0`), coral primary actions (`#E05A47`), charcoal borders, card layouts, and responsive desktop/mobile styling.
   - Auth Page Overhaul: Replaced plain login form with a dual-column layout matching Showcase Panel 1 featuring a Welcome Value Proposition panel ("Your Resume. Your Data. Your Control.", local Ollama privacy badges, neo-brutalist document illustration) and an Auth Panel with accessible tab toggling between Sign In and Create Account, password masking, bcrypt credential notice, and 1-click offline demo login.

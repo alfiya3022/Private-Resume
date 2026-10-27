@@ -21,7 +21,7 @@ app = FastAPI(
 
 def _get_cors_headers(request: Request):
     origin = request.headers.get("origin")
-    cors_origins = [str(o).rstrip("/") for o in settings.BACKEND_CORS_ORIGINS] if settings.BACKEND_CORS_ORIGINS else ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"]
+    cors_origins = [str(o).rstrip("/") for o in settings.BACKEND_CORS_ORIGINS] if settings.BACKEND_CORS_ORIGINS else ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174","https://7c0hjsnn-5174.inc1.devtunnels.ms"]
     allowed_origin = origin if (origin and (origin in cors_origins or "*" in cors_origins)) else (cors_origins[0] if cors_origins else "*")
     return {
         "Access-Control-Allow-Origin": allowed_origin,
@@ -45,9 +45,10 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 async def global_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled server exception on %s %s: %s", request.method, request.url.path, exc)
     headers = _get_cors_headers(request)
+    error_message = f"Internal Server Error: {str(exc)}" if settings.DEBUG else "An unexpected internal server error occurred."
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal Server Error: {str(exc)}"},
+        content={"detail": error_message},
         headers=headers,
     )
 

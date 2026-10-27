@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -125,7 +126,7 @@ class CareerKnowledgeItem(Base):
     source_page = Column(Integer, nullable=True)
     review_status = Column(String(50), default="extracted", nullable=False)  # extracted, confirmed, rejected, user_added
     confidence_score = Column(Integer, default=100, nullable=False)
-    embedding = Column(JSON, nullable=True)  # 384-dimensional embedding vector stored as JSON array
+    embedding = Column(Vector(384), nullable=True)  # 384-dimensional pgvector embedding
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

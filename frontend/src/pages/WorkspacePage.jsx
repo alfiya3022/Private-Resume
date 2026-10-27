@@ -850,16 +850,16 @@ export default function WorkspacePage({ currentUser, onNavigateToProfileEvidence
   return (
     <div className="space-y-4 font-sans">
       {/* 3.1 Persistent Company / Opportunity Header */}
-      <div className="bg-white border-2 border-charcoal p-3 px-4 shadow-brutal-sm flex items-center justify-between gap-3">
-        <div className="flex items-center space-x-2.5 min-w-0">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-charcoal-muted shrink-0 font-bold">
+      <div className="bg-white border-2 border-charcoal p-2.5 sm:p-3 px-3 sm:px-4 shadow-brutal-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center space-x-2.5 min-w-0 w-full sm:w-auto">
+          <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-charcoal-muted shrink-0 font-bold">
             Company:
           </span>
-          <span className="font-bold text-sm sm:text-base text-charcoal truncate">
+          <span className="font-bold text-xs sm:text-base text-charcoal truncate">
             {activeJob ? (
               <>
                 <span className="text-coral">{activeJob.company}</span>
-                <span className="text-charcoal-muted mx-1.5">—</span>
+                <span className="text-charcoal-muted mx-1 sm:mx-1.5">—</span>
                 <span>{activeJob.title}</span>
               </>
             ) : (
@@ -876,7 +876,7 @@ export default function WorkspacePage({ currentUser, onNavigateToProfileEvidence
             resetWorkspaceForNewJob();
             setCurrentStep(1);
           }}
-          className="btn-secondary text-xs py-1 px-3 flex items-center space-x-1 shrink-0"
+          className="btn-secondary text-xs py-1 px-2.5 sm:px-3 flex items-center space-x-1 shrink-0 self-end sm:self-auto"
           title="Clear current job and start a new application intake"
         >
           <Plus className="w-3.5 h-3.5 text-coral" />
@@ -885,7 +885,7 @@ export default function WorkspacePage({ currentUser, onNavigateToProfileEvidence
       </div>
 
       {/* 3.2 Persistent Horizontal Workflow Navigation */}
-      <div className="bg-cream border-2 border-charcoal p-1.5 shadow-brutal-sm flex items-center space-x-1.5 overflow-x-auto">
+      <div className="bg-cream border-2 border-charcoal p-1.5 shadow-brutal-sm flex items-center space-x-1.5 overflow-x-auto scrollbar-none">
         {steps.map((s) => {
           const isActive = currentStep === s.num;
           const isCompleted =

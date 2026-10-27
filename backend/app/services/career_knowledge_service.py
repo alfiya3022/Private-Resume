@@ -413,6 +413,121 @@ class CareerKnowledgeService:
         db.refresh(item)
         return item
 
+    def search_similar_evidence(
+        self,
+        db: Session,
+        user_id: int,
+        query: str,
+        limit: int = 5,
+        threshold: float = 0.5,
+        knowledge_types: Optional[List[str]] = None,
+        source_types: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Executes database-side cosine distance vector search using native pgvector.
+        
+        Returns career knowledge records ordered by cosine similarity (1.0 - distance).
+        """
+        query_vector = self.generate_embedding(query)
+        if not query_vector or len(query_vector) != 384:
+            raise ValueError(f"Invalid query embedding dimension: expected 384, got {len(query_vector) if query_vector else 0}")
+
+        # Check if running against SQLite (e.g. unit tests without pgvector extension)
+        bind = db.get_bind()
+        if bind is not None and bind.dialect.name == "sqlite":
+            # In-memory cosine fallback for SQLite test environments
+            q = (
+                db.query(CareerKnowledgeItem)
+                .filter(
+                    CareerKnowledgeItem.user_id == user_id,
+                    CareerKnowledgeItem.embedding.isnot(None),
+                    CareerKnowledgeItem.review_status != "rejected",
+                )
+            )
+            if knowledge_types:
+                q = q.filter(CareerKnowledgeItem.knowledge_type.in_(knowledge_types))
+            if source_types:
+                q = q.filter(CareerKnowledgeItem.source_type.in_(source_types))
+
+            scored = []
+            for item in q.all():
+                raw_vec = item.embedding
+                if isinstance(raw_vec, str):
+                    import json
+                    try:
+                        v = json.loads(raw_vec)
+                    except Exception:
+                        continue
+                elif isinstance(raw_vec, list):
+                    v = raw_vec
+                else:
+                    try:
+                        v = list(raw_vec)
+                    except Exception:
+                        continue
+                sim = cosine_similarity(query_vector, v)
+                if sim >= threshold:
+                    scored.append((item, sim))
+
+            scored.sort(key=lambda x: x[1], reverse=True)
+            results = scored[:limit]
+
+            evidence_items = []
+            for item, similarity in results:
+                evidence_items.append({
+                    "id": item.id,
+                    "term": item.normalized_term,
+                    "original_text": item.original_text,
+                    "knowledge_type": item.knowledge_type,
+                    "source_type": item.source_type,
+                    "source_evidence": item.source_evidence,
+                    "similarity": round(float(similarity), 4),
+                    "category": item.category,
+                })
+            return evidence_items
+
+        # Native PostgreSQL pgvector cosine distance operator <=>
+        # Cosine similarity = 1 - (embedding <=> query_vector)
+        try:
+            distance_expr = CareerKnowledgeItem.embedding.cosine_distance(query_vector)
+            sim_expr = (1.0 - distance_expr).label("similarity")
+
+            q = (
+                db.query(CareerKnowledgeItem, sim_expr)
+                .filter(
+                    CareerKnowledgeItem.user_id == user_id,
+                    CareerKnowledgeItem.embedding.isnot(None),
+                    CareerKnowledgeItem.review_status != "rejected",
+                )
+            )
+
+            if knowledge_types:
+                q = q.filter(CareerKnowledgeItem.knowledge_type.in_(knowledge_types))
+            if source_types:
+                q = q.filter(CareerKnowledgeItem.source_type.in_(source_types))
+
+            # Filter by threshold on cosine distance (distance <= 1.0 - threshold)
+            max_distance = 1.0 - threshold
+            q = q.filter(distance_expr <= max_distance)
+
+            results = q.order_by(distance_expr.asc()).limit(limit).all()
+
+            evidence_items = []
+            for item, similarity in results:
+                evidence_items.append({
+                    "id": item.id,
+                    "term": item.normalized_term,
+                    "original_text": item.original_text,
+                    "knowledge_type": item.knowledge_type,
+                    "source_type": item.source_type,
+                    "source_evidence": item.source_evidence,
+                    "similarity": round(float(similarity), 4),
+                    "category": item.category,
+                })
+            return evidence_items
+        except Exception as e:
+            logger.error(f"PostgreSQL pgvector query failed for user {user_id}: {e}", exc_info=True)
+            raise RuntimeError(f"Career evidence vector search failed: {e}") from e
+
     def get_candidate_demonstrated_skills(
         self, db: Session, user_id: int
     ) -> List[CareerKnowledgeItem]:

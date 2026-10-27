@@ -234,18 +234,18 @@ export default function PersonalInfoTab({
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2 pt-2 border-t border-charcoal/20">
+          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-2 border-t border-charcoal/20">
             <button
               type="button"
               onClick={handleCancelPersonalEdit}
-              className="btn-secondary text-xs py-1.5 px-3 flex items-center space-x-1"
+              className="btn-secondary text-xs py-1.5 px-3 flex items-center justify-center space-x-1"
             >
               <X className="w-3 h-3" />
               <span>Cancel</span>
             </button>
             <button
               type="submit"
-              className="btn-primary text-xs py-1.5 px-3.5 flex items-center space-x-1.5"
+              className="btn-primary text-xs py-1.5 px-3.5 flex items-center justify-center space-x-1.5"
             >
               <Save className="w-3 h-3" />
               <span>Save Personal Details</span>

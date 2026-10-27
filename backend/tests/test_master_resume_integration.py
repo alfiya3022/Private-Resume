@@ -541,9 +541,9 @@ def test_extract_projects_from_swe2_pdf_fixture():
     assert "lead management" in p0["bullets"][0]
     assert "encrypted database backups" in p0["bullets"][1]
 
-    # Project 2: Verity
+    # Project 2: Verity (fixture PDF may hold original Private Resume text)
     p1 = projs[1]
-    assert "Verity — AI-Powered Resume Application" in p1["title"]
+    assert ("Verity — AI-Powered Resume Application" in p1["title"] or "Private Resume — AI-Powered Resume Application" in p1["title"])
     assert "FastAPI" in p1["technologies"]
     assert "SQLAlchemy" in p1["technologies"]
     assert "Ollama" in p1["technologies"]

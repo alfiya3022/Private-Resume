@@ -1,22 +1,23 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import fs from 'node:fs';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import fs from "node:fs";
 
-const isDocker = fs.existsSync('/.dockerenv');
+const isDocker = fs.existsSync("/.dockerenv");
 const backendTarget =
   process.env.VITE_BACKEND_TARGET ||
-  (isDocker ? 'http://backend:8000' : 'http://localhost:8000');
+  (isDocker ? "http://backend:8000" : "http://localhost:8000");
 
 export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
+    allowedHosts: ["five-storable-custody.ngrok-free.dev"],
     port: 5173,
     watch: {
       usePolling: true,
     },
     proxy: {
-      '/api': {
+      "/api": {
         target: backendTarget,
         changeOrigin: true,
       },

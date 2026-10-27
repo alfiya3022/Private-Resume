@@ -233,7 +233,7 @@ export default function PdfPreviewer({ pdfUrl, onRefresh, title = "PDF Preview" 
   return (
     <div className="pdf-previewer-root flex flex-col h-full bg-stone-100 border-2 border-charcoal">
       {/* Neo-brutal Viewer Header Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-cream border-b-2 border-charcoal text-xs font-mono select-none">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2 bg-cream border-b-2 border-charcoal text-xs font-mono select-none">
         <div className="flex items-center space-x-2">
           <FileText className="w-4 h-4 text-charcoal" />
           <span className="font-bold text-charcoal">{title}</span>
@@ -244,7 +244,7 @@ export default function PdfPreviewer({ pdfUrl, onRefresh, title = "PDF Preview" 
           )}
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <button
             type="button"
             onClick={handleZoomOut}

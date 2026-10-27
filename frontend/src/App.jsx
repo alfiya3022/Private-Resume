@@ -264,7 +264,7 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-cream flex flex-row font-sans">
+      <div className="min-h-screen bg-cream flex flex-col md:flex-row font-sans">
         <Navbar
           activeTab={activeTab}
           setActiveTab={navigateToTab}
@@ -273,7 +273,7 @@ export default function App() {
         />
 
         <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-          <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4">
+          <main className="flex-1 max-w-7xl w-full mx-auto px-2.5 sm:px-6 py-3 sm:py-4">
             <ErrorBoundary>
               {authLoading &&
               (activeTab === "profile" ||
@@ -325,33 +325,6 @@ export default function App() {
               )}
             </ErrorBoundary>
           </main>
-
-          <footer className="border-t-2 border-charcoal bg-white py-2.5 px-6 mt-auto">
-            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-charcoal-muted gap-2">
-              <div>Verity © 2026</div>
-              <div className="flex items-center space-x-3">
-                <span
-                  className={
-                    currentUser
-                      ? "text-emerald-700 font-semibold"
-                      : "text-charcoal-muted"
-                  }
-                >
-                  {currentUser ? `User: ${currentUser.email}` : "Guest Session"}
-                </span>
-                <span>·</span>
-                <span
-                  className={
-                    healthData
-                      ? "text-emerald-700 font-semibold"
-                      : "text-amber-700"
-                  }
-                >
-                  {healthData ? "API Connected" : "Checking API..."}
-                </span>
-              </div>
-            </div>
-          </footer>
         </div>
       </div>
     </ToastProvider>

@@ -15,10 +15,15 @@ Base = declarative_base()
 
 
 def get_db() -> Generator[Session, None, None]:
-    """Dependency for obtaining database sessions per request."""
+    """Dependency for obtaining database sessions per request.
+    Automatically rolls back uncommitted transactions if an exception occurs.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 

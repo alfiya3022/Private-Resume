@@ -429,12 +429,35 @@ class TailoringService:
             CandidateProfile.user_id == user.id,
         ).first()
 
+        # Retrieve grounded career evidence via native pgvector cosine distance search
+        # Querying with the candidate's instruction and current section content
+        search_query = f"{request.section} {request.instruction} {request.current_text or ''}".strip()
+        retrieved_evidence = []
+        retrieval_degraded = False
+        retrieval_error = None
+        try:
+            from app.services.career_knowledge_service import career_knowledge_service
+            retrieved_evidence = career_knowledge_service.search_similar_evidence(
+                db=db,
+                user_id=user.id,
+                query=search_query,
+                limit=6,
+                threshold=0.40,
+            )
+        except Exception as e:
+            logger.error(f"Vector evidence retrieval failed: {e}", exc_info=True)
+            retrieval_degraded = True
+            retrieval_error = str(e)
+
         candidate_evidence: Dict[str, Any] = {
             "skills": [],
             "experience": [],
             "projects": [],
             "certifications": [],
             "education": [],
+            "vector_grounded_evidence": retrieved_evidence,
+            "retrieval_degraded": retrieval_degraded,
+            "retrieval_error": retrieval_error,
         }
 
         if profile:
@@ -482,13 +505,17 @@ class TailoringService:
             acknowledge_unsupported=request.acknowledge_unsupported,
         )
 
+        explanation = refinement.get(
+            "explanation",
+            "Refinement aligned with candidate evidence.",
+        )
+        if candidate_evidence.get("retrieval_degraded"):
+            explanation += " (Note: Vector career evidence search was temporarily unavailable; evaluation proceeded with stored profile facts)."
+
         return AskAIResponse(
             section=request.section,
             suggested_text=refinement.get("suggested_text", ""),
-            explanation=refinement.get(
-                "explanation",
-                "Refinement aligned with candidate evidence.",
-            ),
+            explanation=explanation,
             factuality_checked=True,
             has_unsupported_content=refinement.get("has_unsupported_content", False),
             missing_evidence=refinement.get("missing_evidence", []),

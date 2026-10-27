@@ -102,8 +102,14 @@ class PdfService:
 
     def extract_text_from_pdf_plain(self, file_path: str) -> str:
         """Extracts plain raw text stream across all pages in PDF."""
-        doc = fitz.open(file_path)
         try:
+            doc = fitz.open(file_path)
+        except Exception as e:
+            raise ValueError(f"Could not open PDF file: {e}") from e
+
+        try:
+            if doc.is_encrypted:
+                raise ValueError("Password-protected or encrypted PDFs are not supported.")
             return "\n".join(page.get_text() for page in doc).strip()
         finally:
             doc.close()
@@ -122,9 +128,15 @@ class PdfService:
 
     def extract_links_from_pdf(self, file_path: str) -> List[Dict[str, Any]]:
         """Extracts clickable link annotations and their bounding boxes from PDF."""
-        doc = fitz.open(file_path)
+        try:
+            doc = fitz.open(file_path)
+        except Exception:
+            return []
+
         links: List[Dict[str, Any]] = []
         try:
+            if doc.is_encrypted:
+                return []
             for page_idx, page in enumerate(doc):
                 for lk in page.get_links():
                     uri = lk.get("uri")
@@ -141,7 +153,11 @@ class PdfService:
 
     def extract_layout_lines(self, file_path: str) -> List[Dict[str, Any]]:
         """Extracts lines from PDF with row reconstruction, typography, and geometrically matched links."""
-        doc = fitz.open(file_path)
+        try:
+            doc = fitz.open(file_path)
+        except Exception as e:
+            raise ValueError(f"Could not open PDF file: {e}") from e
+
         all_lines: List[Dict[str, Any]] = []
 
         try:
